@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
+from telephone import en_articles, relever_envois
+
 DOSSIER = Path(__file__).resolve().parent
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 MAX_PAR_SOURCE = 15
@@ -161,6 +163,47 @@ def videos_youtube(id_chaine):
             "date": next((d for d in map(date_relative, textes) if d), None),
         })
     return articles
+
+
+# Onglets par région : mots-clés cherchés dans le titre et le résumé.
+# Un mot terminé par * est un début de mot (« palestin* » trouve palestinien, Palestine…).
+REGIONS = {
+    "Belgique": ["belgique", "belge*", "bruxell*", "wallon*", "flandre", "flamand*", "de wever", "liège", "anvers",
+                 "namur", "charleroi", "gand", "mons", "rtbf", "belgium", "belgian"],
+    "France": ["france", "français*", "francais*", "macron", "élysée", "matignon", "assemblée nationale", "sénat",
+               "lecornu", "bayrou", "le pen", "mélenchon", "bardella", "paris", "marseille", "lyon", "insee",
+               "cour des comptes", "french"],
+    "Europe": ["europ*", "ue", "bruxelles", "von der leyen", "allemand*", "allemagne", "berlin", "merz", "italie",
+               "italien*", "meloni", "espagne", "pologne", "polonais*", "hongrie", "orban", "royaume-uni", "britanni*",
+               "londres", "pays-bas", "néerlandais*", "suisse", "ukrain*", "zelensky", "kiev", "kyiv", "russ*",
+               "poutine", "putin", "moscou", "kremlin", "otan", "nato", "bce", "germany", "dutch", "netherlands"],
+    "USA": ["états-unis", "etats-unis", "usa", "américain*", "americain*", "amérique", "trump", "washington",
+            "maison blanche", "pentagone", "biden", "vance", "new york", "cia", "fbi", "fda", "cdc", "rfk",
+            "kennedy", "america*", "u.s.", "congress"],
+    "Asie": ["asie", "asiat*", "chin*", "pékin", "beijing", "xi jinping", "japon", "japonais*", "japan", "inde",
+             "indien*", "india", "modi", "corée", "korea", "taïwan", "taiwan", "vietnam", "indonésie", "philippines",
+             "pakistan", "afghanistan", "kazakhstan", "brics"],
+    "Moyen-Orient": ["moyen-orient", "israël*", "israel*", "gaza", "gazaoui*", "palestin*", "cisjordanie", "liban*",
+                     "hezbollah", "hamas", "iran*", "téhéran", "syri*", "irak*", "yémen*", "houthi*", "arabie",
+                     "saoudi*", "qatar*", "netanyahou", "netanyahu", "turquie", "turc*", "erdogan", "jordanie",
+                     "égypte", "middle east"],
+    "Monde": ["afrique", "africain*", "amérique latine", "brésil*", "venezuela*", "argentin*", "mexique", "cuba",
+              "onu", "oms", "mondial*", "planète", "international*", "géopoliti*", "multipolaire", "sahel", "mali"],
+}
+_MOTIFS_REGIONS = {
+    r: re.compile(r"\b(?:" + "|".join(re.escape(m[:-1]) + r"\w*" if m.endswith("*") else re.escape(m) + r"\b"
+                                       for m in mots) + ")", re.I)
+    for r, mots in REGIONS.items()
+}
+
+
+def regions_de(article):
+    texte = f'{article["titre"]} {article["resume"]}'
+    trouvees = [r for r, motif in _MOTIFS_REGIONS.items() if motif.search(texte)]
+    # tout ce qui sort de la France et de la Belgique compte aussi pour « Monde »
+    if any(r not in ("France", "Belgique", "Monde") for r in trouvees) and "Monde" not in trouvees:
+        trouvees.append("Monde")
+    return trouvees
 
 
 def recherche_youtube(termes):
@@ -343,18 +386,58 @@ $('insta-copier').onclick=async()=>{const t=$('legende-insta');
 '''
 
 
+JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+
+
+def nom_du_jour(d, aujourdhui):
+    if not d:
+        return "Date inconnue"
+    j = d.astimezone().date()
+    ecart = (aujourdhui - j).days
+    if ecart <= 0:
+        return "Aujourd'hui"
+    if ecart == 1:
+        return "Hier"
+    return f"{JOURS[j.weekday()].capitalize()} {j.day} {MOIS[j.month - 1]}"
+
+
 def generer_page(articles, etat_sources):
     e = html.escape
     maintenant = datetime.now().astimezone()
     themes = sorted({a["theme"] for a in articles})
-    une = [a for a in articles if a["image"]][:5]
+    ts = lambda a: int(a["date"].timestamp()) if a["date"] else 0
+    recents = sum(1 for a in articles if a["date"] and (maintenant - a["date"]).total_seconds() < 86400)
 
-    def carte(a, classe="carte"):
+    # carrousel : l'article illustré le plus récent de chaque source (8 au maximum)
+    diapos, vues = [], set()
+    for a in articles:
+        if a["image"] and a["source"] not in vues:
+            diapos.append(a)
+            vues.add(a["source"])
+        if len(diapos) == 8:
+            break
+
+    pris = {a["lien"] for a in diapos}
+    mosaique, par_source = [], {}
+    for a in articles:  # 2 articles maximum par source pour varier
+        if a["image"] and a["lien"] not in pris and par_source.get(a["source"], 0) < 2:
+            mosaique.append(a)
+            par_source[a["source"]] = par_source.get(a["source"], 0) + 1
+        if len(mosaique) == 14:
+            break
+
+    def tuile(a):
+        return f'''<a class="tuile" href="{e(a["lien"])}" target="_blank" rel="noopener">
+  <img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
+  <span class="tsrc">{e(a["source"])}</span><span class="tt">{e(a["titre"])}</span></a>'''
+
+    def carte(a):
         img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
-        return f'''<article class="{classe}" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}">
+        return f'''<article class="carte" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-regions="{e("|".join(a.get("regions", [])))}">
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
-      <div class="meta"><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time>{date_affichee(a["date"])}</time></div>
+      <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
       <h3>{e(a["titre"])}</h3>
       <p>{e(a["resume"])}</p>
     </div>
@@ -366,50 +449,130 @@ def generer_page(articles, etat_sources):
   </div>
 </article>'''
 
+    def diapo(a, i):
+        return f'''<a class="diapo{" active" if i == 0 else ""}" href="{e(a["lien"])}" target="_blank" rel="noopener">
+  <img src="{e(a["image"])}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
+  <div class="voile"><div class="meta"><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}"></time></div>
+  <h3>{e(a["titre"])}</h3><p>{e(a["resume"])}</p></div></a>'''
+
+    # fil groupé par jour
+    fil, jour_courant = [], None
+    aujourdhui = maintenant.date()
+    for a in articles:
+        jour = nom_du_jour(a["date"], aujourdhui)
+        if jour != jour_courant:
+            fil.append(f'<div class="jour">{e(jour)}</div>')
+            jour_courant = jour
+        fil.append(carte(a))
+
+    bandeau = "".join(
+        f'<a href="{e(a["lien"])}" target="_blank" rel="noopener"><b>{e(a["source"])}</b> {e(a["titre"])}</a>'
+        for a in articles[:25]
+    )
+    derniere_minute = "".join(
+        f'<li><a href="{e(a["lien"])}" target="_blank" rel="noopener"><time class="rel" data-ts="{ts(a)}"></time>'
+        f'<span class="src">{e(a["source"])}</span><span class="t">{e(a["titre"])}</span></a></li>'
+        for a in articles[:9]
+    )
     liste_sources = "".join(
         f'<li><button class="filtre-source" data-source="{e(s["nom"])}">{e(s["nom"])}</button>'
         f'<span class="{"ok" if not err else "ko"}" title="{e(err or "")}">{n if not err else "hors ligne"}</span></li>'
         for s, n, err in etat_sources
     )
+    onglets = "".join(f'<button class="onglet" data-region="{r}">{r}</button>' for r in REGIONS)
     boutons_themes = "".join(f'<button class="filtre-theme" data-theme="{e(t)}">{e(t)}</button>' for t in themes)
+    duree_bandeau = max(40, 7 * min(len(articles), 25))
 
     return f'''<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>La Centrale</title>
 <style>
-:root{{--fond:#f6f3ee;--carte:#fff;--texte:#1d1b18;--doux:#6b645a;--ligne:#e2dcd2;--accent:#b3261e;--accent-doux:#f6dcd9;color-scheme:light}}
-@media (prefers-color-scheme:dark){{:root{{--fond:#16150f;--carte:#211f19;--texte:#ece7dd;--doux:#a39b8d;--ligne:#36322a;--accent:#ff6b5e;--accent-doux:#3a1e1b;color-scheme:dark}}}}
+:root{{--fond:#f6f3ee;--carte:#fff;--texte:#1d1b18;--doux:#6b645a;--ligne:#e2dcd2;--accent:#b3261e;--accent-doux:#f6dcd9;--nuit:#16150f;color-scheme:light}}
+@media (prefers-color-scheme:dark){{:root{{--fond:#16150f;--carte:#211f19;--texte:#ece7dd;--doux:#a39b8d;--ligne:#36322a;--accent:#ff6b5e;--accent-doux:#3a1e1b;--nuit:#0b0a07;color-scheme:dark}}}}
 *{{box-sizing:border-box}}
 body{{margin:0;background:var(--fond);color:var(--texte);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}}
-header{{background:var(--texte);color:var(--fond);padding:22px 20px 18px;text-align:center}}
+header{{background:var(--nuit);color:#ece7dd;padding:22px 20px 18px;text-align:center}}
 header h1{{margin:0;font:800 clamp(34px,6vw,58px)/1 Georgia,"Times New Roman",serif;letter-spacing:.04em;text-transform:uppercase}}
-header h1 span{{color:var(--accent)}}
-header p{{margin:8px 0 0;opacity:.75;font-size:14px}}
+header h1 span{{color:#ff6b5e}}
+header p{{margin:8px 0 0;opacity:.85;font-size:15px;font-style:italic;font-family:Georgia,serif}}
+header p.maj{{font:12px system-ui,sans-serif;opacity:.6;margin-top:4px}}
+.onglets{{background:var(--nuit);display:flex;justify-content:center;flex-wrap:wrap;gap:2px;padding:0 12px;border-top:1px solid #333}}
+.onglet{{font:700 14px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#cfc8bb;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;cursor:pointer}}
+.onglet:hover{{color:#fff}}
+.onglet.actif{{color:#fff;border-bottom-color:#ff6b5e}}
+.mosaique{{max-width:1240px;margin:24px auto 0;padding:0 20px}}
+.grille{{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:8px}}
+.tuile{{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
+.tuile img{{width:100%;height:100%;object-fit:cover;transition:transform .4s}}
+.tuile:hover img{{transform:scale(1.08)}}
+.tuile::after{{content:"";position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.9))}}
+.tsrc,.tt{{position:absolute;left:9px;right:9px;z-index:1}}
+.tsrc{{bottom:auto;top:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;background:#b3261e;border-radius:3px;padding:1px 5px;left:8px;right:auto}}
+.tt{{bottom:9px;font:700 13px/1.25 Georgia,serif;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}}
+header .compteur{{display:inline-block;margin-top:10px;background:#b3261e;color:#fff;border-radius:20px;padding:3px 14px;font-size:13px;font-weight:600}}
+.bandeau{{display:flex;align-items:stretch;background:var(--carte);border-bottom:1px solid var(--ligne);overflow:hidden;font-size:14px}}
+.bandeau .direct{{flex:none;background:var(--accent);color:#fff;font-weight:800;letter-spacing:.08em;padding:9px 14px;display:flex;align-items:center;gap:8px;z-index:1}}
+.bandeau .direct::before{{content:"";width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}}
+@keyframes pulse{{50%{{opacity:.2}}}}
+.defile{{overflow:hidden;flex:1;display:flex;align-items:center}}
+.piste{{display:flex;white-space:nowrap;animation:defile {duree_bandeau}s linear infinite}}
+.bandeau:hover .piste{{animation-play-state:paused}}
+.piste a{{color:var(--texte);text-decoration:none;padding:0 26px;border-right:1px solid var(--ligne)}}
+.piste a b{{color:var(--accent);margin-right:6px}}
+.piste a:hover{{text-decoration:underline}}
+@keyframes defile{{from{{transform:translateX(0)}}to{{transform:translateX(-50%)}}}}
 .barre{{position:sticky;top:0;z-index:5;background:var(--fond);border-bottom:1px solid var(--ligne);padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}}
 .barre input{{flex:1 1 220px;padding:8px 12px;border:1px solid var(--ligne);border-radius:6px;background:var(--carte);color:var(--texte);font:inherit}}
 .barre button,.sources button{{font:inherit;cursor:pointer;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);border-radius:20px;padding:5px 12px}}
 .barre button.actif{{background:var(--accent);border-color:var(--accent);color:#fff}}
-main{{max-width:1240px;margin:0 auto;padding:20px;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:28px}}
+.haut{{max-width:1240px;margin:0 auto;padding:20px 20px 0;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px}}
+@media (max-width:900px){{.haut{{grid-template-columns:1fr}}}}
+.carrousel{{position:relative;border-radius:10px;overflow:hidden;background:var(--nuit);aspect-ratio:16/9;min-height:300px}}
+.diapo{{position:absolute;inset:0;opacity:0;transition:opacity .8s;color:#fff;text-decoration:none;pointer-events:none}}
+.diapo.active{{opacity:1;pointer-events:auto}}
+.diapo img{{width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:transform 7s linear}}
+.diapo.active img{{transform:scale(1.12)}}
+.voile{{position:absolute;inset:auto 0 0 0;padding:70px 26px 30px;background:linear-gradient(transparent,rgba(0,0,0,.88))}}
+.voile h3{{font:700 clamp(20px,2.6vw,32px)/1.2 Georgia,serif;margin:6px 0 8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}}
+.voile p{{margin:0;opacity:.85;font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
+.voile .meta{{color:#ddd}}.voile .src{{color:#ff8a7f}}.voile .theme{{background:rgba(255,255,255,.15)}}
+.fleche{{position:absolute;top:32%;transform:translateY(-50%);z-index:2;width:42px;height:42px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:24px;cursor:pointer}}
+.fleche:hover{{background:var(--accent)}}
+.fleche.g{{left:12px}}.fleche.d{{right:12px}}
+.points{{position:absolute;top:14px;right:16px;display:flex;gap:6px;z-index:2}}
+.points button{{width:10px;height:10px;border-radius:50%;border:0;background:rgba(255,255,255,.45);cursor:pointer;padding:0}}
+.points button.active{{background:#fff;width:24px;border-radius:5px}}
+.progression{{position:absolute;left:0;bottom:0;height:4px;background:var(--accent);z-index:2;width:0}}
+.progression.court{{animation:progres 6s linear forwards}}
+@keyframes progres{{to{{width:100%}}}}
+.minute{{background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:16px;display:flex;flex-direction:column}}
+.minute ul{{list-style:none;margin:0;padding:0;overflow:auto}}
+.minute li a{{display:grid;grid-template-columns:62px 1fr;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--ligne);color:var(--texte);text-decoration:none}}
+.minute li:last-child a{{border:0}}
+.minute time{{grid-row:span 2;font-size:12px;font-weight:700;color:var(--accent)}}
+.minute .src{{font-size:12px}}
+.minute .t{{font:600 14px/1.3 Georgia,serif}}
+.minute a:hover .t{{color:var(--accent)}}
+main{{max-width:1240px;margin:0 auto;padding:24px 20px;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:28px}}
 @media (max-width:900px){{main{{grid-template-columns:1fr}}}}
 h2{{font:700 13px/1 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:8px;margin:0 0 16px}}
-.une{{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:auto auto;gap:14px;margin-bottom:34px}}
-.une .carte:first-child{{grid-row:span 2}}
-.une .carte:first-child h3{{font-size:24px}}
-@media (max-width:700px){{.une{{grid-template-columns:1fr}}.une .carte:first-child{{grid-row:auto}}}}
 .fil{{display:flex;flex-direction:column;gap:12px}}
-.carte{{position:relative;background:var(--carte);border:1px solid var(--ligne);border-radius:8px;overflow:hidden}}
-.carte .lien{{color:inherit;text-decoration:none;display:block;height:100%}}
-.carte img{{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--ligne)}}
-.fil .carte .lien{{display:flex;gap:14px}}
-.fil .carte img{{width:190px;flex:none;aspect-ratio:4/3}}
-@media (max-width:560px){{.fil .carte .lien{{display:block}}.fil .carte img{{width:100%}}}}
+.jour{{font:700 20px Georgia,serif;margin:14px 0 2px;display:flex;align-items:center;gap:12px}}
+.jour::after{{content:"";flex:1;height:1px;background:var(--ligne)}}
+.fil .jour:first-child{{margin-top:0}}
+.carte{{position:relative;background:var(--carte);border:1px solid var(--ligne);border-radius:8px;overflow:hidden;animation:apparait .5s both}}
+@keyframes apparait{{from{{opacity:0;transform:translateY(8px)}}}}
+.carte .lien{{color:inherit;text-decoration:none;display:flex;gap:14px;height:100%}}
+.carte img{{width:190px;flex:none;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--ligne)}}
+@media (max-width:560px){{.carte .lien{{display:block}}.carte img{{width:100%}}}}
 .corps{{padding:12px 44px 14px 14px}}
 .carte h3{{font:700 17px/1.3 Georgia,serif;margin:4px 0 6px}}
 .carte:hover h3{{color:var(--accent)}}
 .carte p{{margin:0;color:var(--doux);font-size:14px}}
-.meta{{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--doux)}}
+.meta{{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--doux);align-items:center}}
 .src{{font-weight:700;color:var(--accent)}}
 .theme{{background:var(--accent-doux);border-radius:3px;padding:0 6px}}
+.nouveau{{background:var(--accent);color:#fff;border-radius:3px;padding:0 6px;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.05em}}
 .actions{{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:6px}}
 .actions button{{width:30px;height:30px;border-radius:50%;border:1px solid var(--ligne);background:var(--carte);color:var(--doux);font-size:15px;cursor:pointer;padding:0}}
 .actions button:hover{{color:var(--accent);border-color:var(--accent)}}
@@ -422,47 +585,95 @@ aside .bloc{{background:var(--carte);border:1px solid var(--ligne);border-radius
 .sources button:hover{{color:var(--accent)}}
 .ok{{font-size:12px;color:var(--doux)}}.ko{{font-size:11px;color:var(--accent)}}
 .vide{{color:var(--doux);padding:30px;text-align:center}}
+#remonter{{position:fixed;right:18px;bottom:18px;width:44px;height:44px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:6}}
 footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
+@media (prefers-reduced-motion:reduce){{.piste,.carte,.progression.court{{animation:none}}.diapo,.diapo img{{transition:none}}}}
 [hidden]{{display:none!important}}
 </style></head><body>
-<header><h1>La <span>Centrale</span></h1><p>Toutes les sources au même endroit · sans étiquette · mis à jour le {date_affichee(maintenant)}</p></header>
+<header><h1>La <span>Centrale</span></h1><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
+<p class="maj">Mis à jour le {date_affichee(maintenant)}</p>
+<span class="compteur">{recents} nouvelles publications ces dernières 24 h</span></header>
+<div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
+<nav class="onglets"><button class="onglet actif" data-region="">À la une</button>{onglets}</nav>
 <div class="barre">
   <input id="recherche" type="search" placeholder="Rechercher un mot, un sujet…">
   <button class="filtre-theme actif" data-theme="">Tout</button>{boutons_themes}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
-<main>
-  <div>
-    <section id="bloc-une"><h2>À la une</h2><div class="une">{"".join(carte(a) for a in une)}</div></section>
-    <section><h2 id="titre-fil">Dernières publications</h2><div class="fil" id="fil">{"".join(carte(a) for a in articles)}</div>
-    <p class="vide" id="vide" hidden>Aucun article ne correspond.</p></section>
+<section class="haut" id="bloc-une">
+  <div class="carrousel" id="carrousel">
+    {"".join(diapo(a, i) for i, a in enumerate(diapos))}
+    <button class="fleche g" aria-label="Précédent">‹</button><button class="fleche d" aria-label="Suivant">›</button>
+    <div class="points">{"".join(f'<button aria-label="Article {i + 1}"></button>' for i in range(len(diapos)))}</div>
+    <div class="progression"></div>
   </div>
+  <div class="minute"><h2>Dernière minute</h2><ul>{derniere_minute}</ul></div>
+</section>
+<section class="mosaique" id="bloc-mosaique"><h2>Les articles du moment</h2><div class="grille">{"".join(tuile(a) for a in mosaique)}</div></section>
+<main>
+  <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
+  <p class="vide" id="vide" hidden>Aucun article ne correspond.</p></section>
   <aside>
     <div class="bloc"><h2>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
-    <div class="bloc"><h2>Le principe</h2><p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. Cliquez sur ☆ pour garder un article dans votre sélection.</p></div>
+    <div class="bloc"><h2>Notre ligne</h2><p style="margin:0 0 10px;color:var(--doux);font-size:14px"><b style="color:var(--texte)">La démocratie participative.</b> Les citoyens n'ont pas besoin d'étiquettes ni d'intermédiaires pour penser : ils ont besoin d'accès aux faits, aux documents et à tous les points de vue, pour décider eux-mêmes.</p>
+    <p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
   </aside>
 </main>
+<button id="remonter" hidden aria-label="Remonter en haut">↑</button>
 <footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources</footer>
 <script>
 const cartes=[...document.querySelectorAll('#fil .carte')];
+const jours=[...document.querySelectorAll('#fil .jour')];
 const etoiles=document.querySelectorAll('.etoile');
-let theme='',source='',selection=false;
+let theme='',source='',selection=false,region='';
 let favoris=new Set();
 try{{favoris=new Set(JSON.parse(localStorage.getItem('centrale-favoris')||'[]'))}}catch(e){{}}
 function sauver(){{try{{localStorage.setItem('centrale-favoris',JSON.stringify([...favoris]))}}catch(e){{}}}}
 function majEtoiles(){{etoiles.forEach(b=>{{const on=favoris.has(b.closest('.carte').dataset.lien);b.classList.toggle('on',on);b.textContent=on?'★':'☆'}})}}
+
+/* heures relatives (« il y a 2 h »), recalculées chaque minute */
+function relatif(ts){{
+  if(!+ts)return'';const s=Date.now()/1000-ts;
+  if(s<60)return"à l'instant";if(s<3600)return'il y a '+Math.floor(s/60)+' min';
+  if(s<86400)return'il y a '+Math.floor(s/3600)+' h';const j=Math.floor(s/86400);return j===1?'hier':'il y a '+j+' j';
+}}
+function majHeures(){{
+  document.querySelectorAll('time.rel').forEach(t=>{{const r=relatif(t.dataset.ts);if(r)t.textContent=r}});
+  cartes.forEach(c=>{{const s=Date.now()/1000-c.dataset.ts;c.querySelector('.nouveau').hidden=!(+c.dataset.ts&&s<86400)}});
+}}
+majHeures();setInterval(majHeures,60000);
+
+/* carrousel */
+const diapos=[...document.querySelectorAll('.diapo')],points=[...document.querySelectorAll('.points button')],barre=document.querySelector('.progression');
+let idx=0,minuteur=null;
+function montrer(i){{
+  if(!diapos.length)return;idx=(i+diapos.length)%diapos.length;
+  diapos.forEach((d,k)=>d.classList.toggle('active',k===idx));points.forEach((p,k)=>p.classList.toggle('active',k===idx));
+  barre.classList.remove('court');void barre.offsetWidth;barre.classList.add('court');
+}}
+function lancer(){{clearInterval(minuteur);minuteur=setInterval(()=>montrer(idx+1),6000);montrer(idx)}}
+function pause(){{clearInterval(minuteur);barre.classList.remove('court')}}
+document.querySelector('.fleche.g').onclick=()=>{{montrer(idx-1);lancer()}};
+document.querySelector('.fleche.d').onclick=()=>{{montrer(idx+1);lancer()}};
+points.forEach((p,k)=>p.onclick=()=>{{montrer(k);lancer()}});
+const car=document.getElementById('carrousel');car.onmouseenter=pause;car.onmouseleave=lancer;
+if(diapos.length)lancer();else car.hidden=true;
+
 function filtrer(){{
   const q=document.getElementById('recherche').value.toLowerCase().trim();
   let n=0;
   cartes.forEach(c=>{{
-    const ok=(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
+    const ok=(!region||c.dataset.regions.split('|').includes(region))&&(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
       &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q));
     c.hidden=!ok;if(ok)n++;
   }});
+  jours.forEach(j=>{{let el=j.nextElementSibling,vu=false;
+    while(el&&!el.classList.contains('jour')){{if(!el.hidden){{vu=true;break}}el=el.nextElementSibling}}j.hidden=!vu}});
   document.getElementById('vide').hidden=n>0;
-  document.getElementById('bloc-une').hidden=!!(theme||source||selection||q);
-  document.getElementById('titre-fil').textContent=selection?'Ma sélection':source?source:theme?theme:'Dernières publications';
+  const filtre=!!(region||theme||source||selection||q);
+  document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;filtre?pause():lancer();
+  document.getElementById('titre-fil').textContent=[region,selection?'Ma sélection':source||theme].filter(Boolean).join(' · ')||'Toutes les publications';
 }}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{
   theme=b.dataset.theme;source='';selection=false;
@@ -474,8 +685,12 @@ document.getElementById('ma-selection').onclick=e=>{{
   selection=!selection;theme='';source='';
   document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===e.target&&selection));filtrer()}};
 document.getElementById('recherche').oninput=filtrer;
+document.querySelectorAll('.onglet').forEach(b=>b.onclick=()=>{{region=b.dataset.region;
+  document.querySelectorAll('.onglet').forEach(x=>x.classList.toggle('actif',x===b));filtrer()}});
 etoiles.forEach(b=>b.onclick=()=>{{const l=b.closest('.carte').dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
 majEtoiles();
+const haut=document.getElementById('remonter');
+addEventListener('scroll',()=>haut.hidden=scrollY<800,{{passive:true}});haut.onclick=()=>scrollTo({{top:0,behavior:'smooth'}});
 </script>
 ''' + PARTAGE + '</body></html>'
 
@@ -494,6 +709,20 @@ def main():
         articles.extend(arts)
         etat.append((source, len(arts), err))
         print(f"  {'OK ' if not err else 'ERR'} {source['nom']:<35} {len(arts) if not err else err}")
+
+    # liens envoyés depuis le téléphone au bot Telegram
+    envois, statut = relever_envois()
+    print(f"  Téléphone : {statut}")
+    for a in en_articles(envois):
+        if a["lien"] not in deja_vus:
+            deja_vus.add(a["lien"])
+            articles.append(a)
+
+    maintenant = datetime.now(timezone.utc)
+    for a in articles:
+        if a["date"] and a["date"] > maintenant:  # date d'un événement à venir, pas de publication
+            a["date"] = None
+        a["regions"] = regions_de(a)
 
     # tri du plus récent au plus ancien (les articles sans date vont à la fin)
     articles.sort(key=lambda a: a["date"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)

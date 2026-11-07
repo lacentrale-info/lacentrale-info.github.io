@@ -30,6 +30,10 @@
   {"nom": "CADTM", "flux": "https://www.cadtm.org/spip.php?page=backend", "theme": "Dette"},
   {"nom": "Attac France", "flux": "https://france.attac.org/spip.php?page=backend", "theme": "Dette"},
   {"nom": "Les Économistes atterrés", "flux": "https://atterres.org/feed/", "theme": "Dette"},
+  {"nom": "Procès Pfizer Pays-Bas (presse FR)", "flux": "https://news.google.com/rss/search?q=Bourla+proc%C3%A8s+Pays-Bas&hl=fr&gl=FR&ceid=FR:fr", "theme": "Dossier procès Pfizer"},
+  {"nom": "Procès Pfizer Pays-Bas (presse NL)", "flux": "https://news.google.com/rss/search?q=Bourla+rechtszaak&hl=nl&gl=NL&ceid=NL:nl", "theme": "Dossier procès Pfizer"},
+  {"nom": "Procès Pfizer Pays-Bas (presse EN)", "flux": "https://news.google.com/rss/search?q=Bourla+Dutch+court+case&hl=en-US&gl=US&ceid=US:en", "theme": "Dossier procès Pfizer"},
+  {"nom": "INSEE (chiffres officiels)", "flux": "https://www.insee.fr/fr/flux/1", "theme": "Faits & Documents"},
   {"nom": "Acrimed", "flux": "https://www.acrimed.org/spip.php?page=backend", "theme": "Médias"},
   {"nom": "Arrêt sur images", "flux": "https://api.arretsurimages.net/api/public/rss/all-content", "theme": "Médias"}
 ]
