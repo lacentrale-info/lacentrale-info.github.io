@@ -28,7 +28,9 @@ CONFIG = DOSSIER / "config.json"
 ENVOIS = DOSSIER / "envois.json"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 # Sites déjà condamnés en justice (ou dissous) : ajoutés à la page mais jamais publiés sur le canal.
-SITES_NON_PUBLIES = ["egaliteetreconciliation.fr", "kontrekulture.com", "civitas-institut.com", "unz.com"]
+SITES_NON_PUBLIES = ["civitas-institut.com", "unz.com"]
+# Sites condamnés pour certains contenus seulement : publiés, avec un rappel de vérifier l'article.
+SITES_A_VERIFIER = ["egaliteetreconciliation.fr", "kontrekulture.com"]
 
 CONFIG_VIDE = {"telegram_jeton": "", "telegram_canal": "", "publier_auto": True}
 
@@ -198,6 +200,10 @@ def relever_envois():
                 api(jeton, "sendMessage", chat_id=expediteur,
                     text="⛔ Non publié sur le canal : ce site a déjà été condamné en justice. "
                          "Il est seulement ajouté à La Centrale pour lecture.")
+            if any(s in urllib.parse.urlparse(lien).netloc for s in SITES_A_VERIFIER):
+                api(jeton, "sendMessage", chat_id=expediteur,
+                    text="⚠️ Rappel : ce site a déjà été condamné pour certains contenus. "
+                         "Vérifiez que cet article ne pose pas de problème.")
             if config.get("publier_auto") and canal and not interdit:
                 try:
                     api(jeton, "sendMessage", chat_id=canal, text=message_canal(env), parse_mode="HTML")
