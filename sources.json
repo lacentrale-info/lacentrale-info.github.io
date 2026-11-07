@@ -33,6 +33,12 @@
   {"nom": "Procès Pfizer Pays-Bas (presse FR)", "flux": "https://news.google.com/rss/search?q=Bourla+proc%C3%A8s+Pays-Bas&hl=fr&gl=FR&ceid=FR:fr", "theme": "Dossier procès Pfizer"},
   {"nom": "Procès Pfizer Pays-Bas (presse NL)", "flux": "https://news.google.com/rss/search?q=Bourla+rechtszaak&hl=nl&gl=NL&ceid=NL:nl", "theme": "Dossier procès Pfizer"},
   {"nom": "Procès Pfizer Pays-Bas (presse EN)", "flux": "https://news.google.com/rss/search?q=Bourla+Dutch+court+case&hl=en-US&gl=US&ceid=US:en", "theme": "Dossier procès Pfizer"},
+  {"nom": "Affaire Epstein (presse FR)", "flux": "https://news.google.com/rss/search?q=Epstein&hl=fr&gl=FR&ceid=FR:fr", "theme": "Dossier Epstein"},
+  {"nom": "Affaire Epstein (presse EN)", "flux": "https://news.google.com/rss/search?q=Epstein+files&hl=en-US&gl=US&ceid=US:en", "theme": "Dossier Epstein"},
+  {"nom": "Epstein et renseignement israélien (presse)", "flux": "https://news.google.com/rss/search?q=Epstein+Mossad&hl=fr&gl=FR&ceid=FR:fr", "theme": "Dossier Epstein"},
+  {"nom": "Drop Site News", "flux": "https://www.dropsitenews.com/feed", "theme": "Géopolitique"},
+  {"nom": "Karl Zéro Absolu", "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UC3_jXg3lm3zN57N19Tek3VQ", "theme": "Dossier réseaux pédocriminels"},
+  {"nom": "Ingérences étrangères en France (presse)", "flux": "https://news.google.com/rss/search?q=ing%C3%A9rence+%C3%A9trang%C3%A8re+France+renseignement&hl=fr&gl=FR&ceid=FR:fr", "theme": "Dossier ingérences"},
   {"nom": "INSEE (chiffres officiels)", "flux": "https://www.insee.fr/fr/flux/1", "theme": "Faits & Documents"},
   {"nom": "Acrimed", "flux": "https://www.acrimed.org/spip.php?page=backend", "theme": "Médias"},
   {"nom": "Arrêt sur images", "flux": "https://api.arretsurimages.net/api/public/rss/all-content", "theme": "Médias"}

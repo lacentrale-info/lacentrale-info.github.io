@@ -479,6 +479,18 @@ def generer_page(articles, etat_sources):
         f'<span class="{"ok" if not err else "ko"}" title="{e(err or "")}">{n if not err else "hors ligne"}</span></li>'
         for s, n, err in etat_sources
     )
+    # dossiers documentés (dossiers.json) : ce qui est établi / ce qui reste débattu
+    try:
+        dossiers = json.loads((DOSSIER / "dossiers.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        dossiers = []
+    bloc_dossiers = "".join(
+        f'''<article class="dossier"><h3>{e(d["titre"])}</h3>
+  <p><span class="etiq etabli">Établi</span>{e(d["etabli"])}</p>
+  <p><span class="etiq debattu">Débattu</span>{e(d["debattu"])}</p>
+  <ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></article>'''
+        for d in dossiers
+    )
     onglets = "".join(f'<button class="onglet" data-region="{r}">{r}</button>' for r in REGIONS)
     boutons_themes = "".join(f'<button class="filtre-theme" data-theme="{e(t)}">{e(t)}</button>' for t in themes)
     duree_bandeau = max(40, 7 * min(len(articles), 25))
@@ -500,6 +512,15 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.6;margin-top:4px}}
 .onglet{{font:700 14px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#cfc8bb;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;cursor:pointer}}
 .onglet:hover{{color:#fff}}
 .onglet.actif{{color:#fff;border-bottom-color:#ff6b5e}}
+.dossiers{{max-width:1240px;margin:28px auto 0;padding:0 20px}}
+.grille-dossiers{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:14px}}
+.dossier{{background:var(--carte);border:1px solid var(--ligne);border-left:4px solid var(--accent);border-radius:8px;padding:16px 18px}}
+.dossier h3{{font:700 19px/1.3 Georgia,serif;margin:0 0 10px}}
+.dossier p{{margin:0 0 8px;font-size:14px}}
+.etiq{{display:inline-block;font:800 10px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-radius:3px;padding:2px 6px;margin-right:8px;vertical-align:1px}}
+.etiq.etabli{{background:#1f7a4d;color:#fff}}.etiq.debattu{{background:#b7791f;color:#fff}}
+.dossier ul{{margin:8px 0 0;padding-left:18px;font-size:13px}}
+.dossier a{{color:var(--accent)}}
 .mosaique{{max-width:1240px;margin:24px auto 0;padding:0 20px}}
 .grille{{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:8px}}
 .tuile{{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
@@ -611,6 +632,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <div class="minute"><h2>Dernière minute</h2><ul>{derniere_minute}</ul></div>
 </section>
 <section class="mosaique" id="bloc-mosaique"><h2>Les articles du moment</h2><div class="grille">{"".join(tuile(a) for a in mosaique)}</div></section>
+<section class="dossiers" id="bloc-dossiers"{" hidden" if not dossiers else ""}><h2>Dossiers documentés · les faits et leurs sources</h2><div class="grille-dossiers">{bloc_dossiers}</div></section>
 <main>
   <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
   <p class="vide" id="vide" hidden>Aucun article ne correspond.</p></section>
@@ -672,7 +694,8 @@ function filtrer(){{
     while(el&&!el.classList.contains('jour')){{if(!el.hidden){{vu=true;break}}el=el.nextElementSibling}}j.hidden=!vu}});
   document.getElementById('vide').hidden=n>0;
   const filtre=!!(region||theme||source||selection||q);
-  document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;filtre?pause():lancer();
+  document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;
+  if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;filtre?pause():lancer();
   document.getElementById('titre-fil').textContent=[region,selection?'Ma sélection':source||theme].filter(Boolean).join(' · ')||'Toutes les publications';
 }}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{

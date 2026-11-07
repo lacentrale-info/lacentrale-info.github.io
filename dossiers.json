@@ -1,0 +1,45 @@
+[
+  {
+    "titre": "Pfizer au Parlement européen (10 octobre 2022)",
+    "etabli": "Interrogée par le député Rob Roos, Janine Small (Pfizer) répond « non » : le vaccin n'avait pas été testé sur l'arrêt de la transmission avant sa mise sur le marché.",
+    "debattu": "Les fact-checkeurs parlent de « manque de contexte » : l'autorisation ne promettait pas officiellement d'empêcher la transmission. Le discours public de l'époque disait le contraire.",
+    "liens": [
+      ["Enregistrement officiel du Parlement européen (commission COVI)", "https://multimedia.europarl.europa.eu/"],
+      ["Correctiv (fact-check, allemand)", "https://correctiv.org/?p=133220"],
+      ["Newtral (espagnol)", "https://www.newtral.es/pfizer-parlamento-europeo/20221014/"]
+    ]
+  },
+  {
+    "titre": "L'ambassadeur Rivkin et les banlieues (2010)",
+    "etabli": "Télégramme diplomatique de janvier 2010 (WikiLeaks, révélé par Le Monde) : « stratégie d'engagement envers les minorités », programmes américains pour repérer de futurs leaders dans les banlieues, lancés en Europe après les émeutes de 2005.",
+    "debattu": "Influence diplomatique classique ou ingérence ? Le recrutement par la CIA n'est pas démontré (un seul ancien agent identifié dans les contacts).",
+    "liens": [
+      ["Le JDD – Comment les États-Unis draguent nos banlieues", "https://www.lejdd.fr/Societe/Comment-les-Etats-Unis-draguent-nos-banlieues-84924-3081401"],
+      ["Bondy Blog – Les États-Unis surveillent les banlieues", "https://bondyblog.fr/reportages/au-pouvoir/les-etats-unis-surveillent-les-banlieues-francaises"],
+      ["Christian Science Monitor (2011)", "https://m.csmonitor.com/World/Europe/2011/0217/In-France-US-advocacy-for-Muslim-rights-raises-more-than-a-few-hackles"],
+      ["Brookings (2008)", "https://www.brookings.edu/articles/les-americains-cherchent-a-se-creer-un-reseau"]
+    ]
+  },
+  {
+    "titre": "Affaire Epstein et renseignement",
+    "etabli": "Millions de pages publiées par le ministère américain de la Justice (janvier 2026). Les courriels piratés d'Ehud Barak (publiés par Drop Site News, 2025) montrent Epstein intermédiaire dans des accords de sécurité entre Israël et d'autres pays. Robert Maxwell, père de Ghislaine, est lié de longue date au renseignement israélien.",
+    "debattu": "Epstein agent du Mossad et opération de chantage (kompromat) : un document du FBI cite une source qui l'affirme, mais rien n'est confirmé. Barak dément, Ghislaine Maxwell aussi.",
+    "liens": [
+      ["Documents officiels du ministère américain de la Justice", "https://www.justice.gov/epstein"],
+      ["Al Jazeera – Les liens d'Epstein avec Israël (2026)", "https://www.aljazeera.com/news/2026/2/9/what-were-jeffrey-epsteins-links-to-israel"],
+      ["FAIR – Les médias ont détourné le regard", "https://fair.org/home/emails-reveal-epsteins-ties-to-mossad-but-corporate-media-looked-away/"],
+      ["Common Dreams – Synthèse des enquêtes Drop Site", "https://www.commondreams.org/news/epstein-israeli-intelligence-investigation"],
+      ["CBS – Publication de janvier 2026", "https://www.cbsnews.com/live-updates/epstein-files-released-doj-2026/"]
+    ]
+  },
+  {
+    "titre": "Opérations du Mossad en France",
+    "etabli": "Tentative de retourner des agents français lors d'une opération commune en Syrie (affaire « Ratafia », 2010, révélée par Le Monde). Livre d'Yvonnick Denoël, « Les guerres secrètes du Mossad ».",
+    "debattu": "Aucune enquête trouvée sur un contrôle des banlieues par le Mossad. À ne publier qu'avec des documents précis.",
+    "liens": [
+      ["Times of Israel – Tentative de recrutement d'agents français", "https://www.timesofisrael.com/mossad-reportedly-tried-to-recruit-french-agents-during-joint-syria-operation/"],
+      ["Ynet – Paris, terrain de jeu du Mossad", "https://www.ynetnews.com/article/5317287"],
+      ["Y. Denoël – Les guerres secrètes du Mossad", "https://www.nouveau-monde.net/catalogue/les-guerres-secretes-du-mossad-3/"]
+    ]
+  }
+]
