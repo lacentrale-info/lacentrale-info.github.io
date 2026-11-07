@@ -4,6 +4,8 @@
   {"nom": "Anne-Laure Bonnel", "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UCl9gThimS6shp-na3p_-dsA", "theme": "Géopolitique"},
   {"nom": "Alexis Poulin (Le Monde Moderne)", "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UCA3dZqGawAvJO6Lexbj8EGg", "theme": "Politique"},
   {"nom": "Le Monde Moderne", "flux": "https://www.lemondemoderne.media/feed/", "theme": "Politique"},
+  {"nom": "Réseau Voltaire (Thierry Meyssan)", "flux": "https://www.voltairenet.org/spip.php?page=backend&lang=fr", "theme": "Géopolitique"},
+  {"nom": "Alain Escada (Civitas International)", "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2QQRXdvgxwgxrlPx8BvkzQ", "theme": "Politique"},
   {"nom": "Égalité et Réconciliation", "flux": "https://www.egaliteetreconciliation.fr/spip.php?page=backend", "theme": "Politique"},
   {"nom": "Étienne Chouard", "flux": "https://www.chouard.org/feed/", "theme": "Démocratie"},
   {"nom": "Kairos", "flux": "https://www.kairospresse.be/feed/", "theme": "Société"},
