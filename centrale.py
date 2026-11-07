@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-from telephone import en_articles, relever_envois
+from telephone import en_articles, infos_page, relever_envois
 
 DOSSIER = Path(__file__).resolve().parent
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -104,6 +104,9 @@ def analyser_flux(donnees):
                     contenu = e.text
                     break
         date = lire_date(premier_texte(it, "pubDate", "published", "updated", "date"))
+        origine = next((e.get("url", "") for e in enfants(it, "source")), "")
+        if any(b in origine for b in SITES_BLOQUES_EN_EUROPE):
+            continue
         if titre and lien:
             articles.append({
                 "titre": texte_brut(titre),
@@ -114,6 +117,12 @@ def analyser_flux(donnees):
             })
     return articles
 
+
+# Sites qui refusent les visiteurs européens (erreur 451 « RGPD ») : inutile de les proposer.
+SITES_BLOQUES_EN_EUROPE = ["eagletribune.com", "chicagotribune.com", "latimes.com", "nydailynews.com",
+                           "baltimoresun.com", "orlandosentinel.com", "sun-sentinel.com", "courant.com",
+                           "dailypress.com", "mcall.com", "pilotonline.com", "newsday.com", "stltoday.com",
+                           "buffalonews.com", "richmond.com", "omaha.com", "tulsaworld.com", "arkansasonline.com"]
 
 UNITES = {"minute": 60, "heure": 3600, "jour": 86400, "semaine": 604800, "mois": 2592000, "an": 31536000}
 
@@ -245,10 +254,34 @@ def recherche_youtube(termes):
     return articles
 
 
+def articles_de_page(url, motif):
+    """Pour un site sans flux RSS : les liens de la page dont l'adresse contient « motif »."""
+    page = telecharger(url).decode("utf-8", "replace")
+    liens = []
+    for href in re.findall(r'href="([^"#]+)"', page):
+        complet = urllib.parse.urljoin(url, html.unescape(href))
+        if (motif in complet and complet.rstrip("/") != url.rstrip("/") and complet not in liens
+                and not re.search(r"/page[:/]\d+", complet)):
+            liens.append(complet)
+
+    def lire(lien):
+        try:
+            i = infos_page(lien)
+        except Exception:
+            return None
+        return {"titre": texte_brut(re.sub(r"\s+[|–-]\s+[^|–-]+$", "", i["titre"])), "lien": lien, "resume": texte_brut(i["resume"]),
+                "image": i["image"], "date": lire_date(i.get("publie_le"))}
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        return [a for a in pool.map(lire, liens[:MAX_PAR_SOURCE]) if a]
+
+
 def recuperer(source):
     try:
         if "recherche_youtube" in source:
             articles = recherche_youtube(source["recherche_youtube"])
+        elif "page" in source:
+            articles = articles_de_page(source["page"], source["motif"])
         else:
             try:
                 articles = analyser_flux(telecharger(source["flux"]))

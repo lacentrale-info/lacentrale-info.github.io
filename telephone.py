@@ -11,6 +11,9 @@ Réglages dans config.json (jamais envoyé ailleurs) :
   publier_auto    : true pour publier sur le canal sans validation
 Le premier compte qui écrit au bot en devient le propriétaire : les messages
 des autres comptes sont ignorés.
+
+On peut aussi transférer au bot des messages Telegram (y compris des PDF) :
+les fichiers sont rangés dans documents/ et republiés tels quels sur le canal.
 """
 import html
 import json
@@ -66,7 +69,8 @@ def infos_page(url):
         m = re.search(r"<title[^>]*>(.*?)</title>", page, re.I | re.S)
         titre = html.unescape(m.group(1)).strip() if m else url
     return {"titre": titre, "resume": meta("og:description") or meta("description"),
-            "image": meta("og:image"), "site": meta("og:site_name") or urllib.parse.urlparse(url).netloc}
+            "image": meta("og:image"), "site": meta("og:site_name") or urllib.parse.urlparse(url).netloc,
+            "publie_le": meta("article:published_time")}
 
 
 def message_canal(env):
@@ -77,6 +81,48 @@ def message_canal(env):
     if env.get("resume"):
         texte += f"\n\n{e(env['resume'][:600])}"
     return texte + f"\n\n📰 {e(env['site'])}\n🔗 {e(env['lien'])}"
+
+
+def lien_origine(msg):
+    """Lien t.me vers le message d'origine, s'il a été transféré depuis un canal public."""
+    chat = msg.get("forward_from_chat") or (msg.get("forward_origin") or {}).get("chat") or {}
+    num = msg.get("forward_from_message_id") or (msg.get("forward_origin") or {}).get("message_id")
+    if chat.get("username") and num:
+        return f"https://t.me/{chat['username']}/{num}"
+    return ""
+
+
+def enregistrer_document(jeton, msg, texte):
+    """Télécharge le fichier reçu (20 Mo maximum, limite de Telegram) dans le dossier documents/."""
+    doc = msg["document"]
+    nom = re.sub(r'[\\/:*?"<>|]+', "_", doc.get("file_name") or f"document-{doc['file_unique_id']}")
+    dossier = DOSSIER / "documents"
+    dossier.mkdir(exist_ok=True)
+    cible = dossier / nom
+    if not cible.exists():
+        try:
+            chemin = api(jeton, "getFile", file_id=doc["file_id"])["file_path"]
+            with urllib.request.urlopen(f"https://api.telegram.org/file/bot{jeton}/{chemin}", timeout=120) as r:
+                cible.write_bytes(r.read())
+        except Exception as e:
+            api(jeton, "sendMessage", chat_id=msg["chat"]["id"], text=f"⚠️ Fichier non récupéré ({nom}) : {e}")
+            return None
+    titre = texte.split("\n")[0][:150] if texte else nom.rsplit(".", 1)[0].replace("_", " ")
+    return {"titre": titre, "resume": f"📄 Document : {nom}" + (f" — {texte[:500]}" if texte else ""),
+            "image": "", "site": "Document reçu", "lien": f"documents/{urllib.parse.quote(nom)}",
+            "commentaire": "", "date": datetime.now(timezone.utc).isoformat(), "publie": False}
+
+
+def publier_copie(jeton, canal, config, msg, env, expediteur):
+    """Republie le message tel quel (fichier compris) sur le canal, puis confirme à l'expéditeur."""
+    if config.get("publier_auto") and canal:
+        try:
+            api(jeton, "copyMessage", chat_id=canal, from_chat_id=msg["chat"]["id"], message_id=msg["message_id"])
+            env["publie"] = True
+        except Exception as e:
+            api(jeton, "sendMessage", chat_id=expediteur, text=f"⚠️ Pas publié sur le canal : {e}")
+    api(jeton, "sendMessage", chat_id=expediteur,
+        text=("✅ Publié sur le canal : " if env["publie"] else "📥 Ajouté à La Centrale : ") + env["titre"])
 
 
 def relever_envois():
@@ -107,8 +153,30 @@ def relever_envois():
         if expediteur != config["proprietaire_id"]:
             continue
         texte = msg.get("text") or msg.get("caption") or ""
+        # liens visibles + liens cachés derrière un mot (messages transférés depuis un canal)
         liens = re.findall(r"https?://\S+", texte)
+        for ent in msg.get("entities", []) + msg.get("caption_entities", []):
+            if ent.get("type") == "text_link" and ent["url"] not in liens:
+                liens.append(ent["url"])
+
+        if msg.get("document"):  # PDF ou autre fichier transféré
+            env = enregistrer_document(jeton, msg, texte)
+            if env and not any(x["lien"] == env["lien"] for x in envois):
+                publier_copie(jeton, canal, config, msg, env, expediteur)
+                envois.insert(0, env)
+                nouveaux += 1
+            continue
         if not liens:
+            origine = lien_origine(msg)
+            if origine and texte:  # message transféré d'un canal public, sans lien dedans
+                env = {"titre": texte.split("\n")[0][:150], "resume": texte[:600], "image": "",
+                       "site": (msg.get("forward_from_chat") or {}).get("title", "Telegram"), "lien": origine,
+                       "commentaire": "", "date": datetime.now(timezone.utc).isoformat(), "publie": False}
+                if not any(x["lien"] == origine for x in envois):
+                    publier_copie(jeton, canal, config, msg, env, expediteur)
+                    envois.insert(0, env)
+                    nouveaux += 1
+                continue
             api(jeton, "sendMessage", chat_id=expediteur,
                 text="Envoyez-moi le lien d'un article (bouton Partager → Telegram → ce bot). "
                      "Vous pouvez ajouter un commentaire avant le lien.")
