@@ -7,6 +7,7 @@ Usage : python centrale.py   (ou double-clic sur lancer.bat)
 import html
 import json
 import re
+import urllib.parse
 import urllib.request
 import webbrowser
 import xml.etree.ElementTree as ET
@@ -162,15 +163,57 @@ def videos_youtube(id_chaine):
     return articles
 
 
+def recherche_youtube(termes):
+    """Pour une personne sans chaîne à elle : ses dernières vidéos (interviews…) trouvées par recherche YouTube."""
+    q = urllib.parse.quote_plus(f'"{termes}"')
+    page = telecharger(f"https://www.youtube.com/results?search_query={q}&sp=CAI%253D").decode("utf-8", "replace")
+    m = re.search(r"var ytInitialData = (\{.*?\});</script>", page, re.S)
+    if not m:
+        raise ValueError("page YouTube illisible")
+    videos = []
+
+    def parcourir(o):
+        if isinstance(o, dict):
+            if "videoRenderer" in o:
+                videos.append(o["videoRenderer"])
+            for v in o.values():
+                parcourir(v)
+        elif isinstance(o, list):
+            for v in o:
+                parcourir(v)
+
+    parcourir(json.loads(m.group(1)))
+    articles = []
+    for v in videos[:MAX_PAR_SOURCE]:
+        try:
+            titre = "".join(r["text"] for r in v["title"]["runs"])
+        except KeyError:
+            continue
+        chaine = "".join(r["text"] for r in v.get("ownerText", {}).get("runs", []))
+        quand = v.get("publishedTimeText", {}).get("simpleText", "")
+        vignettes = v.get("thumbnail", {}).get("thumbnails", [])
+        articles.append({
+            "titre": titre,
+            "lien": f"https://www.youtube.com/watch?v={v['videoId']}",
+            "resume": " · ".join(x for x in (f"Vidéo de {chaine}" if chaine else "", quand) if x),
+            "image": vignettes[-1]["url"] if vignettes else "",
+            "date": date_relative(quand),
+        })
+    return articles
+
+
 def recuperer(source):
     try:
-        try:
-            articles = analyser_flux(telecharger(source["flux"]))
-        except Exception:
-            chaine = re.search(r"youtube\.com/feeds/videos\.xml\?channel_id=([\w-]+)", source["flux"])
-            if not chaine:
-                raise
-            articles = videos_youtube(chaine.group(1))
+        if "recherche_youtube" in source:
+            articles = recherche_youtube(source["recherche_youtube"])
+        else:
+            try:
+                articles = analyser_flux(telecharger(source["flux"]))
+            except Exception:
+                chaine = re.search(r"youtube\.com/feeds/videos\.xml\?channel_id=([\w-]+)", source["flux"])
+                if not chaine:
+                    raise
+                articles = videos_youtube(chaine.group(1))
         for a in articles:
             a["source"] = source["nom"]
             a["theme"] = source.get("theme", "Divers")
@@ -185,6 +228,119 @@ def date_affichee(d):
     d = d.astimezone()
     mois = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
     return f"{d.day} {mois[d.month - 1]} {d.year} · {d:%H:%M}"
+
+
+# Partage : publication sur un canal Telegram (via un bot) et visuels Instagram.
+# Le jeton du bot reste dans le navigateur (localStorage), jamais dans index.html.
+PARTAGE = r'''
+<style>
+dialog{border:1px solid var(--ligne);border-radius:10px;background:var(--carte);color:var(--texte);max-width:min(560px,94vw);padding:22px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h2{margin-bottom:14px}
+dialog label{display:block;font-size:13px;color:var(--doux);margin:12px 0 4px}
+dialog input,dialog textarea{width:100%;padding:8px 10px;border:1px solid var(--ligne);border-radius:6px;background:var(--fond);color:var(--texte);font:inherit}
+dialog textarea{min-height:150px;font-size:13px}
+dialog .boutons{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:16px}
+dialog button{font:inherit;cursor:pointer;border:1px solid var(--ligne);background:var(--fond);color:var(--texte);border-radius:6px;padding:7px 14px}
+dialog button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
+dialog .aide{font-size:13px;color:var(--doux);margin:0}
+#apercu-insta{width:100%;border-radius:6px;display:block;border:1px solid var(--ligne)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--texte);color:var(--fond);padding:10px 18px;border-radius:8px;z-index:50;font-size:14px;max-width:90vw}
+</style>
+<dialog id="reglages">
+  <h2>Réglages</h2>
+  <p class="aide">Pour Telegram : créez un canal, créez un bot avec @BotFather, puis ajoutez le bot comme administrateur du canal.</p>
+  <label for="tg-jeton">Jeton du bot Telegram (donné par @BotFather)</label>
+  <input id="tg-jeton" placeholder="123456789:AAH...">
+  <label for="tg-canal">Nom du canal Telegram</label>
+  <input id="tg-canal" placeholder="@lacentrale_info">
+  <label for="insta-compte">Votre compte Instagram (affiché sur les visuels)</label>
+  <input id="insta-compte" placeholder="@lacentrale">
+  <div class="boutons"><button id="tg-test">Tester Telegram</button><button class="principal" id="reglages-ok">Enregistrer</button></div>
+</dialog>
+<dialog id="dlg-insta">
+  <h2>Visuel Instagram</h2>
+  <img id="apercu-insta" alt="Aperçu du visuel">
+  <label for="legende-insta">Texte de la publication (à coller dans Instagram)</label>
+  <textarea id="legende-insta"></textarea>
+  <div class="boutons"><button id="insta-fermer">Fermer</button><button id="insta-copier">Copier le texte</button><button class="principal" id="insta-telecharger">Télécharger l'image</button></div>
+</dialog>
+<div id="toast" hidden></div>
+<script>
+(function(){
+const lire=(k,d)=>{try{return localStorage.getItem(k)??d}catch(e){return d}};
+const ecrire=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const $=id=>document.getElementById(id);
+function toast(t){const e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.m);toast.m=setTimeout(()=>e.hidden=true,4000)}
+function infos(carte){return{titre:carte.querySelector('h3').textContent,resume:carte.querySelector('p').textContent,
+  source:carte.dataset.source,theme:carte.dataset.theme,lien:carte.dataset.lien}}
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const motCle=s=>'#'+s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]/g,'');
+
+/* Réglages */
+$('ouvrir-reglages').onclick=()=>{$('tg-jeton').value=lire('tg-jeton','');$('tg-canal').value=lire('tg-canal','');
+  $('insta-compte').value=lire('insta-compte','');$('reglages').showModal()};
+$('reglages-ok').onclick=()=>{ecrire('tg-jeton',$('tg-jeton').value.trim());ecrire('tg-canal',$('tg-canal').value.trim());
+  ecrire('insta-compte',$('insta-compte').value.trim());$('reglages').close();toast('Réglages enregistrés')};
+
+/* Telegram : requête « simple » (formulaire) pour passer depuis un fichier local */
+async function telegram(methode,params){
+  const jeton=lire('tg-jeton',''),canal=lire('tg-canal','');
+  if(!jeton||!canal){$('ouvrir-reglages').click();throw new Error('Renseignez d\'abord le bot et le canal')}
+  const r=await fetch(`https://api.telegram.org/bot${jeton}/${methode}`,{method:'POST',body:new URLSearchParams({chat_id:canal,...params})});
+  const j=await r.json();if(!j.ok)throw new Error(j.description||'erreur Telegram');return j;
+}
+$('tg-test').onclick=async()=>{ecrire('tg-jeton',$('tg-jeton').value.trim());ecrire('tg-canal',$('tg-canal').value.trim());
+  try{await telegram('sendMessage',{text:'✅ La Centrale est bien connectée à ce canal.'});toast('Message de test envoyé sur le canal')}
+  catch(e){toast('Échec : '+e.message)}};
+let envoyes=new Set();try{envoyes=new Set(JSON.parse(lire('centrale-envoyes','[]')))}catch(e){}
+function majEnvois(){document.querySelectorAll('.btn-telegram').forEach(b=>{const on=envoyes.has(b.closest('.carte').dataset.lien);
+  b.classList.toggle('envoye',on);b.title=on?'Déjà publié sur Telegram (cliquer pour republier)':'Publier sur le canal Telegram'})}
+document.querySelectorAll('.btn-telegram').forEach(b=>b.onclick=async()=>{
+  const a=infos(b.closest('.carte'));
+  const texte=`<b>${esc(a.titre)}</b>\n\n${esc(a.resume)}\n\n📰 ${esc(a.source)} · ${motCle(a.theme)}\n🔗 ${esc(a.lien)}`;
+  b.disabled=true;
+  try{await telegram('sendMessage',{text:texte,parse_mode:'HTML'});envoyes.add(a.lien);ecrire('centrale-envoyes',JSON.stringify([...envoyes]));
+    majEnvois();toast('Publié sur Telegram')}
+  catch(e){toast('Échec : '+e.message)}
+  b.disabled=false;
+});
+majEnvois();
+
+/* Instagram : visuel 1080×1350 dessiné dans le navigateur */
+function lignes(ctx,texte,largeur){const mots=texte.split(' '),res=[];let l='';
+  for(const m of mots){const t=l?l+' '+m:m;if(ctx.measureText(t).width>largeur&&l){res.push(l);l=m}else l=t}
+  if(l)res.push(l);return res}
+function visuel(a){
+  const c=document.createElement('canvas');c.width=1080;c.height=1350;const x=c.getContext('2d');
+  x.fillStyle='#16150f';x.fillRect(0,0,1080,1350);
+  x.fillStyle='#b3261e';x.fillRect(0,0,1080,14);x.fillRect(80,1180,920,4);
+  x.fillStyle='#ece7dd';x.font='800 64px Georgia,serif';x.textBaseline='top';
+  x.fillText('LA ',80,90);const w=x.measureText('LA ').width;x.fillStyle='#ff6b5e';x.fillText('CENTRALE',80+w,90);
+  x.font='600 30px system-ui,sans-serif';const th=a.theme.toUpperCase();const tw=x.measureText(th).width;
+  x.fillStyle='#b3261e';x.fillRect(80,200,tw+36,52);x.fillStyle='#fff';x.fillText(th,98,210);
+  let taille=78,ls;do{x.font=`700 ${taille}px Georgia,serif`;ls=lignes(x,a.titre,920);taille-=4}while(ls.length*taille*1.25>700&&taille>40);
+  x.fillStyle='#ece7dd';let y=310;for(const l of ls){x.fillText(l,80,y);y+=(taille+4)*1.25}
+  x.font='italic 40px Georgia,serif';x.fillStyle='#a39b8d';x.fillText('Source : '+a.source,80,Math.min(y+40,1100));
+  x.font='600 34px system-ui,sans-serif';x.fillStyle='#ece7dd';x.fillText('Lien en bio',80,1215);
+  const compte=lire('insta-compte','');if(compte){x.textAlign='right';x.fillStyle='#ff6b5e';x.fillText(compte,1000,1215);x.textAlign='left'}
+  return c.toDataURL('image/png');
+}
+let imageCourante='',nomCourant='';
+document.querySelectorAll('.btn-insta').forEach(b=>b.onclick=()=>{
+  const a=infos(b.closest('.carte'));imageCourante=visuel(a);
+  nomCourant='la-centrale-'+a.titre.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g,'-').slice(0,50)+'.png';
+  $('apercu-insta').src=imageCourante;
+  $('legende-insta').value=`${a.titre}\n\n${a.resume}\n\n📰 Source : ${a.source}\n🔗 Lien vers l'article en bio\n\n#LaCentrale ${motCle(a.theme)} #reinformation #decryptage`;
+  $('dlg-insta').showModal();
+});
+$('insta-fermer').onclick=()=>$('dlg-insta').close();
+$('insta-telecharger').onclick=()=>{const l=document.createElement('a');l.href=imageCourante;l.download=nomCourant;l.click()};
+$('insta-copier').onclick=async()=>{const t=$('legende-insta');
+  try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand('copy')}toast('Texte copié')};
+})();
+</script>
+'''
 
 
 def generer_page(articles, etat_sources):
@@ -203,7 +359,11 @@ def generer_page(articles, etat_sources):
       <p>{e(a["resume"])}</p>
     </div>
   </a>
-  <button class="etoile" title="Ajouter à ma sélection" aria-label="Ajouter à ma sélection">☆</button>
+  <div class="actions">
+    <button class="etoile" title="Ajouter à ma sélection" aria-label="Ajouter à ma sélection">☆</button>
+    <button class="btn-telegram" title="Publier sur le canal Telegram" aria-label="Publier sur Telegram">✈</button>
+    <button class="btn-insta" title="Créer un visuel Instagram" aria-label="Créer un visuel Instagram">▣</button>
+  </div>
 </article>'''
 
     liste_sources = "".join(
@@ -250,8 +410,10 @@ h2{{font:700 13px/1 system-ui,sans-serif;text-transform:uppercase;letter-spacing
 .meta{{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--doux)}}
 .src{{font-weight:700;color:var(--accent)}}
 .theme{{background:var(--accent-doux);border-radius:3px;padding:0 6px}}
-.etoile{{position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;border:1px solid var(--ligne);background:var(--carte);color:var(--doux);font-size:16px;cursor:pointer}}
-.etoile.on{{color:#fff;background:var(--accent);border-color:var(--accent)}}
+.actions{{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:6px}}
+.actions button{{width:30px;height:30px;border-radius:50%;border:1px solid var(--ligne);background:var(--carte);color:var(--doux);font-size:15px;cursor:pointer;padding:0}}
+.actions button:hover{{color:var(--accent);border-color:var(--accent)}}
+.etoile.on,.btn-telegram.envoye{{color:#fff!important;background:var(--accent)!important;border-color:var(--accent)!important}}
 aside .bloc{{background:var(--carte);border:1px solid var(--ligne);border-radius:8px;padding:16px;margin-bottom:20px}}
 .sources{{list-style:none;margin:0;padding:0}}
 .sources li{{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--ligne)}}
@@ -268,6 +430,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <input id="recherche" type="search" placeholder="Rechercher un mot, un sujet…">
   <button class="filtre-theme actif" data-theme="">Tout</button>{boutons_themes}
   <button id="ma-selection">★ Ma sélection</button>
+  <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
 <main>
   <div>
@@ -288,7 +451,7 @@ let theme='',source='',selection=false;
 let favoris=new Set();
 try{{favoris=new Set(JSON.parse(localStorage.getItem('centrale-favoris')||'[]'))}}catch(e){{}}
 function sauver(){{try{{localStorage.setItem('centrale-favoris',JSON.stringify([...favoris]))}}catch(e){{}}}}
-function majEtoiles(){{etoiles.forEach(b=>{{const on=favoris.has(b.parentElement.dataset.lien);b.classList.toggle('on',on);b.textContent=on?'★':'☆'}})}}
+function majEtoiles(){{etoiles.forEach(b=>{{const on=favoris.has(b.closest('.carte').dataset.lien);b.classList.toggle('on',on);b.textContent=on?'★':'☆'}})}}
 function filtrer(){{
   const q=document.getElementById('recherche').value.toLowerCase().trim();
   let n=0;
@@ -311,10 +474,10 @@ document.getElementById('ma-selection').onclick=e=>{{
   selection=!selection;theme='';source='';
   document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===e.target&&selection));filtrer()}};
 document.getElementById('recherche').oninput=filtrer;
-etoiles.forEach(b=>b.onclick=()=>{{const l=b.parentElement.dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
+etoiles.forEach(b=>b.onclick=()=>{{const l=b.closest('.carte').dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
 majEtoiles();
 </script>
-</body></html>'''
+''' + PARTAGE + '</body></html>'
 
 
 def main():
