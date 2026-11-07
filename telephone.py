@@ -27,6 +27,9 @@ DOSSIER = Path(__file__).resolve().parent
 CONFIG = DOSSIER / "config.json"
 ENVOIS = DOSSIER / "envois.json"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+# Sites déjà condamnés en justice (ou dissous) : ajoutés à la page mais jamais publiés sur le canal.
+SITES_NON_PUBLIES = ["egaliteetreconciliation.fr", "kontrekulture.com", "civitas-institut.com", "unz.com"]
+
 CONFIG_VIDE = {"telegram_jeton": "", "telegram_canal": "", "publier_auto": True}
 
 
@@ -190,7 +193,12 @@ def relever_envois():
             except Exception:
                 env = {"titre": lien, "resume": "", "image": "", "site": urllib.parse.urlparse(lien).netloc}
             env.update(lien=lien, commentaire=commentaire, date=datetime.now(timezone.utc).isoformat(), publie=False)
-            if config.get("publier_auto") and canal:
+            interdit = any(s in urllib.parse.urlparse(lien).netloc for s in SITES_NON_PUBLIES)
+            if interdit:
+                api(jeton, "sendMessage", chat_id=expediteur,
+                    text="⛔ Non publié sur le canal : ce site a déjà été condamné en justice. "
+                         "Il est seulement ajouté à La Centrale pour lecture.")
+            if config.get("publier_auto") and canal and not interdit:
                 try:
                     api(jeton, "sendMessage", chat_id=canal, text=message_canal(env), parse_mode="HTML")
                     env["publie"] = True

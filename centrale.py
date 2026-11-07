@@ -292,6 +292,7 @@ def recuperer(source):
                 articles = videos_youtube(chaine.group(1))
         for a in articles:
             a["source"] = source["nom"]
+            a["prudence"] = source.get("prudence", False)
             a["theme"] = source.get("theme", "Divers")
         return source, articles, None
     except Exception as e:  # une source en panne ne doit pas bloquer les autres
@@ -382,6 +383,9 @@ document.querySelectorAll('.btn-telegram').forEach(b=>b.onclick=async()=>{
   b.disabled=false;
 });
 majEnvois();
+/* sources déjà condamnées en justice : lecture seule, pas de partage */
+document.querySelectorAll('.carte[data-prudence] .btn-telegram, .carte[data-prudence] .btn-insta').forEach(b=>{
+  b.disabled=true;b.title='Partage désactivé : source déjà condamnée en justice';b.style.opacity='.3';b.style.cursor='not-allowed'});
 
 /* Instagram : visuel 1080×1350 dessiné dans le navigateur */
 function lignes(ctx,texte,largeur){const mots=texte.split(' '),res=[];let l='';
@@ -467,7 +471,7 @@ def generer_page(articles, etat_sources):
 
     def carte(a):
         img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
-        return f'''<article class="carte" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-regions="{e("|".join(a.get("regions", [])))}">
+        return f'''<article class="carte" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-regions="{e("|".join(a.get("regions", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}>
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
       <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
