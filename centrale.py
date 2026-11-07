@@ -389,7 +389,7 @@ document.querySelectorAll('.carte[data-prudence] .btn-telegram, .carte[data-prud
   b.disabled=true;b.title='Partage désactivé : source déjà condamnée en justice';b.style.opacity='.3';b.style.cursor='not-allowed'});
 /* sources condamnées par le passé pour certains contenus : partage possible après vérification */
 document.querySelectorAll('.carte[data-avertir] .btn-telegram, .carte[data-avertir] .btn-insta').forEach(b=>{
-  b.title+=' (vérifiez l'article avant de partager)';
+  b.title+=' (à vérifier avant de partager)';
   b.addEventListener('click',ev=>{if(!confirm('Ce site a déjà été condamné pour certains contenus. Avez-vous vérifié que cet article ne pose pas de problème ?')){ev.stopImmediatePropagation();ev.preventDefault()}},true)});
 
 /* Instagram : visuel 1080×1350 dessiné dans le navigateur */
