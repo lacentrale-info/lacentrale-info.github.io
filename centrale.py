@@ -197,31 +197,50 @@ def videos_youtube(id_chaine):
     return articles
 
 
-# Onglets par région : mots-clés cherchés dans le titre et le résumé.
+# Onglets par région, dans l'ordre d'affichage : mots-clés cherchés dans le titre et le résumé.
 # Un mot terminé par * est un début de mot (« palestin* » trouve palestinien, Palestine…).
 REGIONS = {
-    "Belgique": ["belgique", "belge*", "bruxell*", "wallon*", "flandre", "flamand*", "de wever", "liège", "anvers",
-                 "namur", "charleroi", "gand", "mons", "rtbf", "belgium", "belgian"],
+    "Europe": ["europ*", "ue", "von der leyen", "commission européenne", "parlement européen", "otan", "nato", "bce",
+               "pologne", "polonais*", "hongrie", "orban", "autriche", "grèce", "portugal", "roumanie", "serbie",
+               "vucic", "scandinav*", "suède", "norvège", "danemark", "finlande", "baltes", "lituanie", "lettonie",
+               "estonie", "moldavie", "géorgie"],
     "France": ["france", "français*", "francais*", "macron", "élysée", "matignon", "assemblée nationale", "sénat",
                "lecornu", "bayrou", "le pen", "mélenchon", "bardella", "paris", "marseille", "lyon", "insee",
                "cour des comptes", "french"],
-    "Europe": ["europ*", "ue", "bruxelles", "von der leyen", "allemand*", "allemagne", "berlin", "merz", "italie",
-               "italien*", "meloni", "espagne", "pologne", "polonais*", "hongrie", "orban", "royaume-uni", "britanni*",
-               "londres", "pays-bas", "néerlandais*", "suisse", "ukrain*", "zelensky", "kiev", "kyiv", "russ*",
-               "poutine", "putin", "moscou", "kremlin", "otan", "nato", "bce", "germany", "dutch", "netherlands"],
-    "USA": ["états-unis", "etats-unis", "usa", "américain*", "americain*", "amérique", "trump", "washington",
-            "maison blanche", "pentagone", "biden", "vance", "new york", "cia", "fbi", "fda", "cdc", "rfk",
-            "kennedy", "america*", "u.s.", "congress"],
+    "Belgique": ["belgique", "belge*", "bruxell*", "wallon*", "flandre", "flamand*", "de wever", "liège", "anvers",
+                 "namur", "charleroi", "gand", "mons", "rtbf", "belgium", "belgian", "belgië"],
+    "Espagne": ["espagne", "espagnol*", "madrid", "barcelone", "catalogne", "sánchez", "sanchez", "spain", "spanish",
+                "españa"],
+    "Italie": ["italie", "italien*", "rome", "milan", "meloni", "vatican", "pape", "italy", "italian*", "italia"],
+    "Allemagne": ["allemagne", "allemand*", "berlin", "merz", "scholz", "bundestag", "afd", "germany", "german*",
+                  "deutschland"],
+    "Suisse": ["suisse", "helvét*", "berne", "genève", "zurich", "davos", "switzerland", "swiss"],
+    "Royaume-Uni": ["royaume-uni", "britanni*", "anglais*", "angleterre", "londres", "starmer", "farage", "uk",
+                    "britain", "british", "london", "england"],
+    "Pays-Bas": ["pays-bas", "néerlandais*", "hollande", "amsterdam", "la haye", "rutte", "netherlands", "dutch",
+                 "nederland*"],
+    "Russie / Ukraine": ["russ*", "poutine", "putin", "moscou", "kremlin", "lavrov", "ukrain*", "zelensky", "kiev",
+                         "kyiv", "donbass", "crimée", "russia*"],
+    "USA": ["états-unis", "etats-unis", "usa", "américain*", "americain*", "trump", "washington", "maison blanche",
+            "pentagone", "biden", "vance", "new york", "cia", "fbi", "fda", "cdc", "rfk", "kennedy", "u.s.",
+            "congress", "american*", "america"],
+    "Amérique latine": ["amérique latine", "brésil*", "lula", "venezuela*", "maduro", "argentin*", "milei", "mexique",
+                        "cuba*", "colombi*", "chili", "bolivie", "pérou", "latin america"],
     "Asie": ["asie", "asiat*", "chin*", "pékin", "beijing", "xi jinping", "japon", "japonais*", "japan", "inde",
              "indien*", "india", "modi", "corée", "korea", "taïwan", "taiwan", "vietnam", "indonésie", "philippines",
-             "pakistan", "afghanistan", "kazakhstan", "brics"],
+             "pakistan", "afghanistan", "kazakhstan"],
     "Moyen-Orient": ["moyen-orient", "israël*", "israel*", "gaza", "gazaoui*", "palestin*", "cisjordanie", "liban*",
                      "hezbollah", "hamas", "iran*", "téhéran", "syri*", "irak*", "yémen*", "houthi*", "arabie",
                      "saoudi*", "qatar*", "netanyahou", "netanyahu", "turquie", "turc*", "erdogan", "jordanie",
                      "égypte", "middle east"],
-    "Monde": ["afrique", "africain*", "amérique latine", "brésil*", "venezuela*", "argentin*", "mexique", "cuba",
-              "onu", "oms", "mondial*", "planète", "international*", "géopoliti*", "multipolaire", "sahel", "mali"],
+    "Afrique": ["afrique", "africain*", "sahel", "mali", "niger", "burkina", "sénégal", "côte d'ivoire", "algérie",
+                "maroc", "tunisie", "congo", "rwanda", "nigeria", "éthiopie", "kenya", "afrique du sud", "africa*"],
+    "Monde": ["onu", "oms", "mondial*", "planète", "international*", "géopoliti*", "multipolaire", "brics", "g20",
+              "world", "global*"],
 }
+# Les pays européens comptent aussi pour l'onglet « Europe ».
+PAYS_EUROPEENS = {"France", "Belgique", "Espagne", "Italie", "Allemagne", "Suisse", "Royaume-Uni", "Pays-Bas",
+                  "Russie / Ukraine"}
 _MOTIFS_REGIONS = {
     r: re.compile(r"\b(?:" + "|".join(re.escape(m[:-1]) + r"\w*" if m.endswith("*") else re.escape(m) + r"\b"
                                        for m in mots) + ")", re.I)
@@ -234,19 +253,28 @@ MOTS_LANGUE = {
     "fr": {"le", "la", "les", "des", "est", "et", "une", "du", "pour", "dans", "que", "qui", "sur", "pas", "au", "avec", "ce", "sont", "par", "aux"},
     "en": {"the", "and", "is", "of", "to", "in", "for", "that", "with", "on", "are", "was", "by", "from", "this", "it", "be", "as", "at", "an"},
     "nl": {"de", "het", "een", "en", "van", "is", "dat", "op", "voor", "met", "niet", "zijn", "aan", "bij", "ook", "naar", "om", "wordt", "werd", "kwam"},
+    "es": {"el", "los", "las", "del", "y", "es", "una", "por", "para", "con", "que", "en", "se", "su", "al", "como", "más", "pero", "sus", "fue"},
+    "it": {"il", "lo", "gli", "della", "di", "e", "è", "una", "per", "con", "che", "non", "si", "nel", "alla", "sono", "come", "dei", "delle", "anche"},
 }
+NOMS_LANGUE = {"fr": "FR", "en": "EN", "nl": "NL", "es": "ES", "it": "IT"}
 
 
 def langue_de(article):
     mots = re.findall(r"[a-zà-ÿ]+", f'{article["titre"]} {article["resume"]}'.lower())
     scores = {l: sum(m in liste for m in mots) for l, liste in MOTS_LANGUE.items()}
     meilleure = max(scores, key=scores.get)
-    return meilleure if scores[meilleure] else "fr"
+    # beaucoup de petits mots sont communs à plusieurs langues : il faut une nette avance
+    autres = sorted(scores.values(), reverse=True)
+    if not scores[meilleure] or (meilleure in ("es", "it", "nl") and scores[meilleure] < autres[1] + 2):
+        return max(("fr", "en"), key=scores.get) if scores["fr"] or scores["en"] else "fr"
+    return meilleure
 
 
 def regions_de(article):
     texte = f'{article["titre"]} {article["resume"]}'
     trouvees = [r for r, motif in _MOTIFS_REGIONS.items() if motif.search(texte)]
+    if PAYS_EUROPEENS & set(trouvees) and "Europe" not in trouvees:
+        trouvees.append("Europe")
     # tout ce qui sort de la France et de la Belgique compte aussi pour « Monde »
     if any(r not in ("France", "Belgique", "Monde") for r in trouvees) and "Monde" not in trouvees:
         trouvees.append("Monde")
@@ -585,6 +613,9 @@ def generer_page(articles, etat_sources):
   <ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></article>'''
         for d in dossiers
     )
+    langues_presentes = {a.get("langue", "fr") for a in articles}
+    boutons_langues = "".join(f'<button class="langue" data-langue="{l}">{nom}</button>'
+                              for l, nom in NOMS_LANGUE.items() if l in langues_presentes)
     onglets = "".join(f'<button class="onglet" data-region="{r}">{r}</button>' for r in REGIONS)
     themes_dossiers = [t for t in themes if t.startswith("Dossier")]
     boutons_themes = "".join(f'<button class="filtre-theme" data-theme="{e(t)}">{e(t)}</button>'
@@ -610,8 +641,9 @@ header h1 a{{color:inherit;text-decoration:none}}
 .recherche button{{padding:5px 10px}}
 header p{{margin:0;opacity:.85;font-size:14px;font-style:italic;font-family:Georgia,serif}}
 header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
-.onglets{{background:var(--nuit);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px 16px;padding:0 16px;border-top:1px solid #333}}
-.onglets .regions{{display:flex;flex-wrap:wrap;gap:2px}}
+.onglets{{background:var(--nuit);display:flex;justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:4px 16px;padding:0 16px;border-top:1px solid #333}}
+.onglets .regions{{display:flex;flex-wrap:nowrap;gap:2px;overflow-x:auto;scrollbar-width:thin;min-width:0;flex:1 1 0}}
+.onglets .regions>*{{flex:none}}
 .langues{{display:flex;gap:4px;padding:6px 0}}
 .langue{{font:700 13px system-ui,sans-serif;color:#cfc8bb;background:none;border:1px solid #555;border-radius:20px;padding:4px 11px;cursor:pointer}}
 .langue:hover{{color:#fff;border-color:#999}}
@@ -746,7 +778,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><div class="regions"><button class="onglet actif" data-region="">À la une</button>{onglets}
   <button class="onglet" id="ouvrir-dossiers" aria-expanded="false">📂 Dossiers ▾</button></div>
-  <div class="langues" role="group" aria-label="Langue"><button class="langue actif" data-langue="">Toutes</button><button class="langue" data-langue="fr">FR</button><button class="langue" data-langue="en">EN</button><button class="langue" data-langue="nl">NL</button></div></nav>
+  <div class="langues" role="group" aria-label="Langue"><button class="langue actif" data-langue="">Toutes</button>{boutons_langues}</div></nav>
 <div class="panneau-dossiers" id="panneau-dossiers" hidden>{boutons_dossiers}<a href="#bloc-dossiers" class="dossier-lien">Dossiers documentés (faits et sources) ↓</a></div>
 <div class="barre">
   <form class="recherche" id="form-recherche" role="search"><input id="recherche" type="search" enterkeyhint="search" placeholder="Rechercher un mot, un sujet…"><button type="submit" aria-label="Rechercher">🔍</button></form>
