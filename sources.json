@@ -15,6 +15,7 @@
   {"nom": "UnHerd", "flux": "https://unherd.com/feed/", "theme": "Sources internationales"},
   {"nom": "RAND Corporation (think tank américain)", "flux": "https://www.rand.org/news/press.xml", "theme": "Faits & Documents"},
   {"nom": "Strategika", "flux": "https://strategika510.com/feed/", "theme": "Géopolitique"},
+  {"nom": "Pierre-Antoine Plaquevent", "flux": "https://pierreantoineplaquevent.substack.com/feed", "theme": "Géopolitique"},
   {"nom": "Réseau Voltaire (Thierry Meyssan)", "flux": "https://www.voltairenet.org/spip.php?page=backend&lang=fr", "theme": "Géopolitique"},
   {"nom": "Alain Escada (Civitas International)", "prudence": true, "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2QQRXdvgxwgxrlPx8BvkzQ", "theme": "Politique"},
   {"nom": "Égalité et Réconciliation", "avertir": true, "flux": "https://www.egaliteetreconciliation.fr/spip.php?page=backend", "theme": "Politique"},
