@@ -613,7 +613,10 @@ def generer_page(articles, etat_sources):
   <ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></article>'''
         for d in dossiers
     )
-    langues_presentes = {a.get("langue", "fr") for a in articles}
+    nb_langue = {}
+    for a in articles:
+        nb_langue[a.get("langue", "fr")] = nb_langue.get(a.get("langue", "fr"), 0) + 1
+    langues_presentes = {l for l, n in nb_langue.items() if n >= 5}  # pas d'onglet pour 1 ou 2 articles
     boutons_langues = "".join(f'<button class="langue" data-langue="{l}">{nom}</button>'
                               for l, nom in NOMS_LANGUE.items() if l in langues_presentes)
     onglets = "".join(f'<button class="onglet" data-region="{r}">{r}</button>' for r in REGIONS)
