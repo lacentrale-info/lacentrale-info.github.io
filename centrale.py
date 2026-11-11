@@ -763,7 +763,11 @@ function majLangueHaut(){{
   document.querySelectorAll('.tuile:not([hidden])').forEach((x,k)=>x.hidden=k>=maxTuiles);
   document.querySelectorAll('.minute li:not([hidden])').forEach((x,k)=>x.hidden=k>=15);
   car.hidden=!visibles.length;pos=0;if(visibles.length)lancer();
+  vitesseBandeau();
 }}
+/* bandeau : vitesse fixe et lente, quel que soit le nombre de titres */
+const VITESSE_BANDEAU=25; // pixels par seconde
+function vitesseBandeau(){{const p=document.querySelector('.piste');if(p)p.style.animationDuration=Math.max(30,p.scrollWidth/2/VITESSE_BANDEAU)+'s'}}
 majLangueHaut();
 
 function filtrer(){{
