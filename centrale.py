@@ -569,7 +569,7 @@ def generer_page(articles, etat_sources):
         for a in articles[:30]
     )
     liste_sources = "".join(
-        f'<li><button class="filtre-source" data-source="{e(s["nom"])}">{e(s["nom"])}</button>'
+        f'<li data-theme="{e(s.get("theme", ""))}"><button class="filtre-source" data-source="{e(s["nom"])}">{e(s["nom"])}</button>'
         f'<span class="{"ok" if not err else "ko"}" title="{e(err or "")}">{n if not err else "hors ligne"}</span></li>'
         for s, n, err in etat_sources
     )
@@ -843,6 +843,8 @@ function filtrer(){{
   jours.forEach(j=>{{let el=j.nextElementSibling,vu=false;
     while(el&&!el.classList.contains('jour')){{if(!el.hidden){{vu=true;break}}el=el.nextElementSibling}}j.hidden=!vu}});
   document.getElementById('vide').hidden=n>0;
+  // la liste des sources ne montre que celles de la rubrique choisie
+  document.querySelectorAll('.sources li').forEach(li=>li.hidden=!!theme&&li.dataset.theme!==theme);
   const filtre=!!(region||theme||source||selection||q);
   document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;
   if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
