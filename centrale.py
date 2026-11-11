@@ -635,9 +635,9 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .grille-pub{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:12px}}
 .grille-pub .carte{{border:2px solid var(--accent)}}
 .grille-pub .carte .lien{{display:block}}.grille-pub .carte img{{width:100%;aspect-ratio:16/9}}
-.mosaique{{min-width:0;height:100%}}
-.grille{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:6px;height:100%}}
-.tuile{{position:relative;min-height:0;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
+.mosaique{{min-width:0}}
+.grille{{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}}
+.tuile{{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
 .tuile img{{width:100%;height:100%;object-fit:cover;transition:transform .4s}}
 .tuile:hover img{{transform:scale(1.08)}}
 .tuile::after{{content:"";position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.9))}}
@@ -663,12 +663,16 @@ header .compteur{{display:inline-block;background:#b3261e;color:#fff;border-radi
 .barre button,.sources button{{font:inherit;cursor:pointer;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);border-radius:20px;padding:5px 12px}}
 .barre select{{font:inherit;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);border-radius:20px;padding:5px 10px;cursor:pointer}}
 .barre button.actif{{background:var(--accent);border-color:var(--accent);color:#fff}}
-.haut{{max-width:1320px;margin:0 auto;padding:14px 20px 0;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1.2fr) minmax(0,.95fr);gap:12px;height:clamp(380px,calc(100vh - 220px),540px)}}
+.haut{{max-width:1320px;margin:0 auto;padding:14px 20px 0;display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:10px 12px;height:clamp(440px,calc(100vh - 248px),640px)}}
 .haut>*{{min-height:0}}
-@media (max-width:1100px){{.haut{{grid-template-columns:minmax(0,1fr) minmax(0,1fr);height:auto}}
-  .haut .carrousel{{grid-column:1/-1;height:clamp(240px,34vh,340px)}}.haut .mosaique,.haut .minute{{height:clamp(300px,38vh,400px)}}}}
-@media (max-width:700px){{.haut{{grid-template-columns:minmax(0,1fr);padding:10px 12px 0}}.haut .carrousel{{height:auto;aspect-ratio:4/3}}.haut .minute{{height:auto;max-height:420px}}
-  .haut .mosaique{{height:auto}}.haut .grille{{grid-template-rows:none}}.haut .tuile{{aspect-ratio:1}}header .sous{{min-width:0;max-width:100%}}}}
+.haut .carrousel{{grid-column:1;grid-row:1}}
+.haut .mosaique{{grid-column:1;grid-row:2}}
+.haut .minute{{grid-column:2;grid-row:1/3}}
+@media (max-width:1100px){{.haut{{grid-template-columns:minmax(0,1fr);grid-template-rows:none;height:auto}}
+  .haut .carrousel,.haut .mosaique,.haut .minute{{grid-column:1;grid-row:auto}}
+  .haut .carrousel{{height:clamp(240px,40vh,400px)}}.haut .minute{{height:auto;max-height:420px}}}}
+@media (max-width:700px){{.haut{{padding:10px 12px 0}}.haut .carrousel{{height:auto;aspect-ratio:4/3}}
+  .haut .grille{{grid-template-columns:repeat(3,minmax(0,1fr))}}header .sous{{min-width:0;max-width:100%}}}}
 .carrousel{{position:relative;border-radius:10px;overflow:hidden;background:var(--nuit);height:100%}}
 .diapo{{position:absolute;inset:0;opacity:0;transition:opacity .8s;color:#fff;text-decoration:none;pointer-events:none}}
 .diapo.active{{opacity:1;pointer-events:auto}}
@@ -813,7 +817,7 @@ function majLangueHaut(){{
   visibles=diapos.map((_,k)=>k).filter(k=>!langue||diapos[k].dataset.langue===langue);
   points.forEach((p,k)=>p.hidden=!visibles.includes(k));
   document.querySelectorAll('.tuile,.minute li,.piste a').forEach(x=>x.hidden=!!langue&&x.dataset.langue!==langue);
-  const maxTuiles=matchMedia('(min-width:701px)').matches?9:12;
+  const maxTuiles=6;
   document.querySelectorAll('.tuile:not([hidden])').forEach((x,k)=>x.hidden=k>=maxTuiles);
   document.querySelectorAll('.minute li:not([hidden])').forEach((x,k)=>x.hidden=k>=15);
   car.hidden=!visibles.length;pos=0;if(visibles.length)lancer();
