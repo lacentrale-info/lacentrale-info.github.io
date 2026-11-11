@@ -17,15 +17,20 @@ les fichiers sont rangés dans documents/ et republiés tels quels sur le canal.
 """
 import html
 import json
+import mimetypes
+import os
 import re
+import uuid
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 DOSSIER = Path(__file__).resolve().parent
-CONFIG = DOSSIER / "config.json"
+CONFIG = DOSSIER / "config.json"  # réglages privés (jeton du bot) : reste sur l'ordinateur
+ETAT = DOSSIER / "etat.json"  # suivi du bot sans secret, partagé avec la version en ligne
 ENVOIS = DOSSIER / "envois.json"
+BOITE = DOSSIER / "boite"  # publications déposées par le Studio en ligne
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 # Sites déjà condamnés en justice (ou dissous) : ajoutés à la page mais jamais publiés sur le canal.
 SITES_NON_PUBLIES = ["civitas-institut.com", "unz.com"]
@@ -33,6 +38,22 @@ SITES_NON_PUBLIES = ["civitas-institut.com", "unz.com"]
 SITES_A_VERIFIER = ["egaliteetreconciliation.fr", "kontrekulture.com"]
 
 CONFIG_VIDE = {"telegram_jeton": "", "telegram_canal": "", "publier_auto": True}
+
+
+def lire_config():
+    """config.json sur l'ordinateur ; en ligne, le jeton vient des secrets GitHub (variables d'environnement)."""
+    c = {**CONFIG_VIDE, **lire_json(ETAT, {}), **lire_json(CONFIG, {})}
+    if os.environ.get("TELEGRAM_JETON"):
+        c["telegram_jeton"] = os.environ["TELEGRAM_JETON"]
+    if os.environ.get("TELEGRAM_CANAL"):
+        c["telegram_canal"] = os.environ["TELEGRAM_CANAL"]
+    return c
+
+
+def sauver_config(c):
+    ecrire_json(ETAT, {k: c[k] for k in ("dernier_update", "proprietaire_id") if k in c})
+    if not os.environ.get("CI"):  # jamais de jeton écrit dans le dépôt en ligne
+        ecrire_json(CONFIG, {k: v for k, v in c.items() if k not in ("dernier_update", "proprietaire_id")})
 
 
 def lire_json(chemin, defaut):
@@ -132,10 +153,7 @@ def publier_copie(jeton, canal, config, msg, env, expediteur):
 
 def relever_envois():
     """Récupère les liens envoyés au bot ; renvoie la liste de tous les envois (pour la page)."""
-    config = lire_json(CONFIG, None)
-    if config is None:
-        ecrire_json(CONFIG, CONFIG_VIDE)
-        config = dict(CONFIG_VIDE)
+    config = lire_config()
     envois = lire_json(ENVOIS, [])
     jeton, canal = config.get("telegram_jeton"), config.get("telegram_canal")
     if not jeton:
@@ -215,9 +233,117 @@ def relever_envois():
             api(jeton, "sendMessage", chat_id=expediteur,
                 text=("✅ Publié sur le canal : " if env["publie"] else "📥 Ajouté à La Centrale : ") + env["titre"])
 
-    ecrire_json(CONFIG, config)
+    sauver_config(config)
     ecrire_json(ENVOIS, envois)
     return envois, f"{nouveaux} nouveau(x) envoi(s) reçu(s)"
+
+
+def creer_publication(champs, chemin=None):
+    """Publication du Studio (sur l'ordinateur ou en ligne) : mise en page, Telegram, envois.json.
+
+    champs : texte, lien, titre, source, commentaire, telegram ("1" pour publier sur le canal)
+    chemin : document déjà enregistré dans documents/ (PDF, image…), facultatif
+    """
+    lien = (champs.get("lien") or "").strip()
+    texte = (champs.get("texte") or "").strip()
+    if not lien:
+        m = re.search(r"https?://\S+", texte)
+        if m:
+            lien = m.group(0)
+            texte = (texte[:m.start()] + texte[m.end():]).strip()
+    if not (lien or texte or chemin):
+        raise ValueError("Collez un lien, un texte ou ajoutez un fichier.")
+
+    infos = {}
+    if lien:
+        try:
+            infos = infos_page(lien)
+        except Exception:
+            infos = {"site": urllib.parse.urlparse(lien).netloc}
+    if chemin and not lien:
+        lien = f"documents/{urllib.parse.quote(chemin.name)}"
+    if not lien:  # texte seul : votre propre article
+        lien = f"#publication-{uuid.uuid4().hex[:10]}"
+
+    lignes = texte.split("\n")
+    reste = "\n".join(lignes[1:]).strip()
+    env = {
+        "titre": (champs.get("titre") or "").strip() or infos.get("titre") or lignes[0][:150]
+                 or (chemin.stem.replace("_", " ") if chemin else "Publication"),
+        "resume": infos.get("resume") or (texte if champs.get("titre") else reste) or
+                  (f"📄 Document : {chemin.name}" if chemin else ""),
+        "image": infos.get("image", ""),
+        "site": (champs.get("source") or "").strip() or infos.get("site") or "La Centrale",
+        "lien": lien,
+        "commentaire": (champs.get("commentaire") or "").strip() or (texte if infos.get("resume") else ""),
+        "date": champs.get("date") or datetime.now(timezone.utc).isoformat(),
+        "publie": False,
+        "via": "studio",
+    }
+
+    message = "Ajouté à La Centrale."
+    c = lire_config()
+    if str(champs.get("telegram")) in ("1", "True", "true") and c.get("telegram_jeton") and c.get("telegram_canal"):
+        if any(s in urllib.parse.urlparse(lien).netloc for s in SITES_NON_PUBLIES):
+            message += " Pas publié sur Telegram : site déjà condamné en justice."
+        else:
+            try:
+                if chemin:
+                    envoyer_document(c["telegram_jeton"], c["telegram_canal"], chemin, message_canal(env))
+                else:
+                    api(c["telegram_jeton"], "sendMessage", chat_id=c["telegram_canal"],
+                        text=message_canal(env), parse_mode="HTML")
+                env["publie"] = True
+                message += " Publié sur le canal Telegram."
+            except Exception as e:
+                message += f" Telegram : échec ({e})."
+
+    envois = [x for x in lire_json(ENVOIS, []) if x["lien"] != env["lien"]]
+    envois.insert(0, env)
+    ecrire_json(ENVOIS, envois)
+    return env, message
+
+
+def retirer_publication(lien):
+    ecrire_json(ENVOIS, [x for x in lire_json(ENVOIS, []) if x["lien"] != lien])
+
+
+def envoyer_document(jeton, canal, chemin, legende):
+    """sendDocument : envoi du fichier lui-même sur le canal."""
+    limite = uuid.uuid4().hex
+    corps = b""
+    for nom, valeur in (("chat_id", canal), ("caption", legende[:1024]), ("parse_mode", "HTML")):
+        corps += f'--{limite}\r\nContent-Disposition: form-data; name="{nom}"\r\n\r\n{valeur}\r\n'.encode()
+    corps += (f'--{limite}\r\nContent-Disposition: form-data; name="document"; filename="{chemin.name}"\r\n'
+              f'Content-Type: {mimetypes.guess_type(chemin.name)[0] or "application/octet-stream"}\r\n\r\n').encode()
+    corps += chemin.read_bytes() + f"\r\n--{limite}--\r\n".encode()
+    req = urllib.request.Request(f"https://api.telegram.org/bot{jeton}/sendDocument", corps,
+                                 {"Content-Type": f"multipart/form-data; boundary={limite}"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        rep = json.loads(r.read())
+    if not rep.get("ok"):
+        raise RuntimeError(rep.get("description", "erreur Telegram"))
+
+
+def traiter_boite():
+    """Publications déposées par le Studio en ligne dans boite/ (un fichier .json par action)."""
+    if not BOITE.exists():
+        return "boîte vide"
+    n = 0
+    for f in sorted(BOITE.glob("*.json")):
+        demande = lire_json(f, {})
+        try:
+            if demande.get("type") == "suppression":
+                retirer_publication(demande["lien"])
+            else:
+                doc = demande.get("document")
+                chemin = DOSSIER / doc if doc else None
+                creer_publication(demande, chemin if chemin and chemin.exists() else None)
+            n += 1
+        except Exception as e:
+            print(f"  Boîte : {f.name} ignoré ({e})")
+        f.unlink()
+    return f"{n} action(s) du Studio en ligne"
 
 
 def lire_envois():

@@ -552,7 +552,7 @@ def generer_page(articles, etat_sources):
     )
     onglets = "".join(f'<button class="onglet" data-region="{r}">{r}</button>' for r in REGIONS)
     boutons_themes = "".join(f'<button class="filtre-theme" data-theme="{e(t)}">{e(t)}</button>' for t in themes)
-    duree_bandeau = max(40, 7 * min(len(articles), 25))
+    duree_bandeau = 14 * min(len(articles), 60)  # environ 45 pixels par seconde, lisible
 
     return f'''<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -614,10 +614,10 @@ header .compteur{{display:inline-block;background:#b3261e;color:#fff;border-radi
 .barre button.actif{{background:var(--accent);border-color:var(--accent);color:#fff}}
 .haut{{max-width:1320px;margin:0 auto;padding:14px 20px 0;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1.2fr) minmax(0,.95fr);gap:12px;height:clamp(380px,calc(100vh - 220px),540px)}}
 .haut>*{{min-height:0}}
-@media (max-width:1100px){{.haut{{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);height:auto}}.carrousel{{height:420px}}.minute{{height:420px}}
-  .mosaique{{grid-column:1/-1;order:3}}.grille{{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:none}}.tuile{{aspect-ratio:1}}}}
-@media (max-width:700px){{.haut{{grid-template-columns:minmax(0,1fr);padding:10px 12px 0}}.carrousel{{height:auto;aspect-ratio:4/3}}.minute{{height:auto;max-height:420px}}
-  .grille{{grid-template-columns:repeat(3,minmax(0,1fr))}}header .sous{{min-width:0;max-width:100%}}}}
+@media (max-width:1100px){{.haut{{grid-template-columns:minmax(0,1fr) minmax(0,1fr);height:auto}}
+  .haut .carrousel{{grid-column:1/-1;height:clamp(240px,34vh,340px)}}.haut .mosaique,.haut .minute{{height:clamp(300px,38vh,400px)}}}}
+@media (max-width:700px){{.haut{{grid-template-columns:minmax(0,1fr);padding:10px 12px 0}}.haut .carrousel{{height:auto;aspect-ratio:4/3}}.haut .minute{{height:auto;max-height:420px}}
+  .haut .mosaique{{height:auto}}.haut .grille{{grid-template-rows:none}}.haut .tuile{{aspect-ratio:1}}header .sous{{min-width:0;max-width:100%}}}}
 .carrousel{{position:relative;border-radius:10px;overflow:hidden;background:var(--nuit);height:100%}}
 .diapo{{position:absolute;inset:0;opacity:0;transition:opacity .8s;color:#fff;text-decoration:none;pointer-events:none}}
 .diapo.active{{opacity:1;pointer-events:auto}}
@@ -759,7 +759,7 @@ function majLangueHaut(){{
   visibles=diapos.map((_,k)=>k).filter(k=>!langue||diapos[k].dataset.langue===langue);
   points.forEach((p,k)=>p.hidden=!visibles.includes(k));
   document.querySelectorAll('.tuile,.minute li,.piste a').forEach(x=>x.hidden=!!langue&&x.dataset.langue!==langue);
-  const maxTuiles=matchMedia('(min-width:1101px)').matches?9:12;
+  const maxTuiles=matchMedia('(min-width:701px)').matches?9:12;
   document.querySelectorAll('.tuile:not([hidden])').forEach((x,k)=>x.hidden=k>=maxTuiles);
   document.querySelectorAll('.minute li:not([hidden])').forEach((x,k)=>x.hidden=k>=15);
   car.hidden=!visibles.length;pos=0;if(visibles.length)lancer();
