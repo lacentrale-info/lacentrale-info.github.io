@@ -8,6 +8,7 @@ import html
 import json
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -25,14 +26,35 @@ MAX_PAR_SOURCE = 15
 LONGUEUR_RESUME = 260
 
 
+# Certains sites (Substack…) refusent les serveurs de GitHub avec un navigateur « classique »
+# mais acceptent les lecteurs de flux : on réessaie avec ces identités en cas de refus.
+UA_SECOURS = ["Feedly/1.0 (+http://www.feedly.com/fetcher.html; like FeedFetcher-Google)",
+              "Mozilla/5.0 (compatible; Inoreader/1.0; +http://www.inoreader.com)"]
+
+
 def telecharger(url):
-    req = urllib.request.Request(url, headers={
-        "User-Agent": UA,
-        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
-        "Accept-Language": "fr-FR,fr;q=0.9",
-    })
-    with urllib.request.urlopen(req, timeout=25) as r:
-        return r.read()
+    derniere_erreur = None
+    for ua in [UA, *UA_SECOURS]:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": ua,
+            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+            "Accept-Language": "fr-FR,fr;q=0.9",
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=25) as r:
+                donnees = r.read()
+        except urllib.error.HTTPError as e:
+            if e.code not in (403, 429, 503):
+                raise
+            derniere_erreur = e
+            continue
+        # page anti-robot à la place du flux : on tente l'identité suivante
+        if "feed" in url or "rss" in url or "backend" in url:
+            if donnees.lstrip()[:15].lower().startswith((b"<!doctype html", b"<html")):
+                derniere_erreur = ValueError("page anti-robot au lieu du flux")
+                continue
+        return donnees
+    raise derniere_erreur
 
 
 def texte_brut(fragment):
@@ -552,7 +574,12 @@ def generer_page(articles, etat_sources):
         for d in dossiers
     )
     onglets = "".join(f'<button class="onglet" data-region="{r}">{r}</button>' for r in REGIONS)
-    boutons_themes = "".join(f'<button class="filtre-theme" data-theme="{e(t)}">{e(t)}</button>' for t in themes)
+    themes_dossiers = [t for t in themes if t.startswith("Dossier")]
+    boutons_themes = "".join(f'<button class="filtre-theme" data-theme="{e(t)}">{e(t)}</button>'
+                             for t in themes if t not in themes_dossiers)
+    boutons_dossiers = "".join(
+        f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}">📂 {e(t.removeprefix("Dossier ").capitalize())}</button>'
+        for t in themes_dossiers)
     duree_bandeau = 14 * min(len(articles), 60)  # environ 45 pixels par seconde, lisible
 
     return f'''<!doctype html>
@@ -568,7 +595,18 @@ header h1{{margin:0;font:800 clamp(28px,4vw,42px)/1 Georgia,"Times New Roman",se
 header h1 span{{color:#ff6b5e}}
 header p{{margin:0;opacity:.85;font-size:14px;font-style:italic;font-family:Georgia,serif}}
 header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
-.onglets{{background:var(--nuit);display:flex;justify-content:center;flex-wrap:wrap;gap:2px;padding:0 12px;border-top:1px solid #333}}
+.onglets{{background:var(--nuit);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px 16px;padding:0 16px;border-top:1px solid #333}}
+.onglets .regions{{display:flex;flex-wrap:wrap;gap:2px}}
+.langues{{display:flex;gap:4px;padding:6px 0}}
+.langue{{font:700 13px system-ui,sans-serif;color:#cfc8bb;background:none;border:1px solid #555;border-radius:20px;padding:4px 11px;cursor:pointer}}
+.langue:hover{{color:#fff;border-color:#999}}
+.langue.actif{{background:#b3261e;border-color:#b3261e;color:#fff}}
+.panneau-dossiers{{background:#211f19;display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;justify-content:center;border-top:1px solid #333}}
+.panneau-dossiers button,.liste-dossiers button{{font:600 14px system-ui,sans-serif;cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid var(--accent);background:var(--carte);color:var(--texte)}}
+.panneau-dossiers button.actif,.liste-dossiers button.actif{{background:var(--accent);color:#fff}}
+.dossier-lien{{color:#ff8a7f;align-self:center;font-size:14px}}
+.liste-dossiers{{display:flex;flex-direction:column;gap:8px}}
+.liste-dossiers button{{text-align:left}}
 .onglet{{font:700 14px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#cfc8bb;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;cursor:pointer}}
 .onglet:hover{{color:#fff}}
 .onglet.actif{{color:#fff;border-bottom-color:#ff6b5e}}
@@ -686,11 +724,13 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <header><h1>La <span>Centrale</span></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
 <p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
-<nav class="onglets"><button class="onglet actif" data-region="">À la une</button>{onglets}</nav>
+<nav class="onglets"><div class="regions"><button class="onglet actif" data-region="">À la une</button>{onglets}
+  <button class="onglet" id="ouvrir-dossiers" aria-expanded="false">📂 Dossiers ▾</button></div>
+  <div class="langues" role="group" aria-label="Langue"><button class="langue actif" data-langue="">Toutes</button><button class="langue" data-langue="fr">FR</button><button class="langue" data-langue="en">EN</button><button class="langue" data-langue="nl">NL</button></div></nav>
+<div class="panneau-dossiers" id="panneau-dossiers" hidden>{boutons_dossiers}<a href="#bloc-dossiers" class="dossier-lien">Dossiers documentés (faits et sources) ↓</a></div>
 <div class="barre">
   <input id="recherche" type="search" placeholder="Rechercher un mot, un sujet…">
   <button class="filtre-theme actif" data-theme="">Tout</button>{boutons_themes}
-  <select id="langue" aria-label="Langue des articles"><option value="">🌐 Toutes les langues</option><option value="fr">Français</option><option value="en">English</option><option value="nl">Nederlands</option></select>
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
@@ -710,6 +750,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
   <p class="vide" id="vide" hidden>Aucun article ne correspond.</p></section>
   <aside>
+    <div class="bloc bloc-dossiers"><h2>Nos dossiers</h2><div class="liste-dossiers">{boutons_dossiers}</div></div>
     <div class="bloc"><h2>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
     <div class="bloc"><h2>Notre ligne</h2><p style="margin:0 0 10px;color:var(--doux);font-size:14px"><b style="color:var(--texte)">La démocratie participative.</b> Les citoyens n'ont pas besoin d'étiquettes ni d'intermédiaires pour penser : ils ont besoin d'accès aux faits, aux documents et à tous les points de vue, pour décider eux-mêmes.</p>
     <p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
@@ -723,7 +764,7 @@ const jours=[...document.querySelectorAll('#fil .jour')];
 const etoiles=document.querySelectorAll('.etoile');
 let theme='',source='',selection=false,region='';
 let langue='';try{{langue=localStorage.getItem('centrale-langue')||''}}catch(e){{}}
-document.getElementById('langue').value=langue;
+document.querySelectorAll('.langue').forEach(b=>b.classList.toggle('actif',b.dataset.langue===langue));
 let favoris=new Set();
 try{{favoris=new Set(JSON.parse(localStorage.getItem('centrale-favoris')||'[]'))}}catch(e){{}}
 function sauver(){{try{{localStorage.setItem('centrale-favoris',JSON.stringify([...favoris]))}}catch(e){{}}}}
@@ -790,7 +831,8 @@ function filtrer(){{
 }}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{
   theme=b.dataset.theme;source='';selection=false;
-  document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===b));filtrer()}});
+  document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===b));
+  if(!b.classList.contains('dossier-btn'))document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.remove('actif'));filtrer()}});
 document.querySelectorAll('.filtre-source').forEach(b=>b.onclick=()=>{{
   source=b.dataset.source;theme='';selection=false;
   document.querySelectorAll('.barre button').forEach(x=>x.classList.remove('actif'));filtrer();scrollTo({{top:0,behavior:'smooth'}})}});
@@ -798,9 +840,16 @@ document.getElementById('ma-selection').onclick=e=>{{
   selection=!selection;theme='';source='';
   document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===e.target&&selection));filtrer()}};
 document.getElementById('recherche').oninput=filtrer;
-document.getElementById('langue').onchange=e=>{{langue=e.target.value;try{{localStorage.setItem('centrale-langue',langue)}}catch(x){{}}majLangueHaut();filtrer()}};
-document.querySelectorAll('.onglet').forEach(b=>b.onclick=()=>{{region=b.dataset.region;
-  document.querySelectorAll('.onglet').forEach(x=>x.classList.toggle('actif',x===b));filtrer()}});
+document.querySelectorAll('.langue').forEach(b=>b.onclick=()=>{{langue=b.dataset.langue;try{{localStorage.setItem('centrale-langue',langue)}}catch(x){{}}
+  document.querySelectorAll('.langue').forEach(x=>x.classList.toggle('actif',x===b));majLangueHaut();filtrer()}});
+const panneau=document.getElementById('panneau-dossiers'),boutonDossiers=document.getElementById('ouvrir-dossiers');
+boutonDossiers.onclick=()=>{{panneau.hidden=!panneau.hidden;boutonDossiers.setAttribute('aria-expanded',!panneau.hidden)}};
+document.querySelectorAll('.dossier-btn').forEach(b=>b.addEventListener('click',()=>{{
+  document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.toggle('actif',x.dataset.theme===b.dataset.theme));
+  panneau.hidden=true;document.getElementById('titre-fil').scrollIntoView({{behavior:'smooth'}})}}));
+document.querySelector('.dossier-lien').onclick=()=>{{panneau.hidden=true}};
+document.querySelectorAll('.onglet[data-region]').forEach(b=>b.onclick=()=>{{region=b.dataset.region;
+  document.querySelectorAll('.onglet[data-region]').forEach(x=>x.classList.toggle('actif',x===b));filtrer()}});
 etoiles.forEach(b=>b.onclick=()=>{{const l=b.closest('.carte').dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
 majEtoiles();
 const haut=document.getElementById('remonter');
