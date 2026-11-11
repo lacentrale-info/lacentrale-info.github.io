@@ -330,7 +330,14 @@ def recuperer(source):
                     articles = videos_youtube(chaine.group(1))
                 elif substack:  # Substack bloque les serveurs de GitHub : relais par Google Actualités
                     relais = f"https://news.google.com/rss/search?q=site:{substack.group(1)}&hl=en-GB&gl=GB&ceid=GB:en"
-                    articles = [a for a in analyser_flux(telecharger(relais)) if "| Substack" not in a["titre"]]
+                    limite = datetime.now(timezone.utc).timestamp() - 45 * 86400
+                    articles = []
+                    for a in analyser_flux(telecharger(relais)):
+                        titre = a["titre"].replace(" | Substack", "").rsplit(" - ", 1)[0].strip()
+                        if (titre.startswith("Comments -") or "Substack" in titre
+                                or not a["date"] or a["date"].timestamp() < limite):
+                            continue  # page d'accueil, commentaires ou vieux articles
+                        articles.append({**a, "titre": titre})
                 else:
                     raise
         for a in articles:
