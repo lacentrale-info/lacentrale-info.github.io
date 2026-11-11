@@ -325,9 +325,14 @@ def recuperer(source):
                 articles = analyser_flux(telecharger(source["flux"]))
             except Exception:
                 chaine = re.search(r"youtube\.com/feeds/videos\.xml\?channel_id=([\w-]+)", source["flux"])
-                if not chaine:
+                substack = re.search(r"https://([\w-]+\.substack\.com)/feed", source["flux"])
+                if chaine:
+                    articles = videos_youtube(chaine.group(1))
+                elif substack:  # Substack bloque les serveurs de GitHub : relais par Google Actualités
+                    relais = f"https://news.google.com/rss/search?q=site:{substack.group(1)}&hl=en-GB&gl=GB&ceid=GB:en"
+                    articles = [a for a in analyser_flux(telecharger(relais)) if "| Substack" not in a["titre"]]
+                else:
                     raise
-                articles = videos_youtube(chaine.group(1))
         for a in articles:
             a["source"] = source["nom"]
             a["prudence"] = source.get("prudence", False)
