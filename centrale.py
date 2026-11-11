@@ -639,14 +639,14 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .grille-pub .carte{{border:2px solid var(--accent)}}
 .grille-pub .carte .lien{{display:block}}.grille-pub .carte img{{width:100%;aspect-ratio:16/9}}
 .mosaique{{min-width:0}}
-.grille{{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}}
+.grille{{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}}
 .tuile{{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
 .tuile img{{width:100%;height:100%;object-fit:cover;transition:transform .4s}}
 .tuile:hover img{{transform:scale(1.08)}}
 .tuile::after{{content:"";position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.9))}}
 .tsrc,.tt{{position:absolute;left:9px;right:9px;z-index:1}}
-.tsrc{{bottom:auto;top:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;background:#b3261e;border-radius:3px;padding:1px 5px;left:8px;right:auto}}
-.tt{{bottom:7px;font:700 12px/1.22 Georgia,serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
+.tsrc{{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 16px);bottom:auto;top:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;background:#b3261e;border-radius:3px;padding:1px 5px;left:8px;right:auto}}
+.tt{{bottom:6px;font:700 11px/1.2 Georgia,serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
 header .compteur{{display:inline-block;background:#b3261e;color:#fff;border-radius:20px;padding:1px 10px;font-weight:600;margin-right:6px}}
 .bandeau{{display:flex;align-items:stretch;background:var(--carte);border-bottom:1px solid var(--ligne);overflow:hidden;font-size:14px}}
 .bandeau .direct{{flex:none;background:var(--accent);color:#fff;font-weight:800;letter-spacing:.08em;padding:9px 14px;display:flex;align-items:center;gap:8px;z-index:1}}
@@ -673,9 +673,10 @@ header .compteur{{display:inline-block;background:#b3261e;color:#fff;border-radi
 .haut .minute{{grid-column:2;grid-row:1/3}}
 @media (max-width:1100px){{.haut{{grid-template-columns:minmax(0,1fr);grid-template-rows:none;height:auto}}
   .haut .carrousel,.haut .mosaique,.haut .minute{{grid-column:1;grid-row:auto}}
-  .haut .carrousel{{height:clamp(240px,40vh,400px)}}.haut .minute{{height:auto;max-height:420px}}}}
+  .haut .carrousel{{height:clamp(240px,40vh,400px)}}.haut .minute{{height:auto;max-height:420px}}
+  .haut .grille{{grid-template-columns:repeat(6,minmax(0,1fr))}}}}
 @media (max-width:700px){{.haut{{padding:10px 12px 0}}.haut .carrousel{{height:auto;aspect-ratio:4/3}}
-  .haut .grille{{grid-template-columns:repeat(3,minmax(0,1fr))}}header .sous{{min-width:0;max-width:100%}}}}
+  .haut .grille{{grid-template-columns:repeat(4,minmax(0,1fr))}}.tt{{font-size:10px!important}}.tsrc{{font-size:8px!important}}header .sous{{min-width:0;max-width:100%}}}}
 .carrousel{{position:relative;border-radius:10px;overflow:hidden;background:var(--nuit);height:100%}}
 .diapo{{position:absolute;inset:0;opacity:0;transition:opacity .8s;color:#fff;text-decoration:none;pointer-events:none}}
 .diapo.active{{opacity:1;pointer-events:auto}}
@@ -820,7 +821,7 @@ function majLangueHaut(){{
   visibles=diapos.map((_,k)=>k).filter(k=>!langue||diapos[k].dataset.langue===langue);
   points.forEach((p,k)=>p.hidden=!visibles.includes(k));
   document.querySelectorAll('.tuile,.minute li,.piste a').forEach(x=>x.hidden=!!langue&&x.dataset.langue!==langue);
-  const maxTuiles=6;
+  const maxTuiles=2*(matchMedia('(min-width:1101px)').matches?8:matchMedia('(min-width:701px)').matches?6:4);
   document.querySelectorAll('.tuile:not([hidden])').forEach((x,k)=>x.hidden=k>=maxTuiles);
   document.querySelectorAll('.minute li:not([hidden])').forEach((x,k)=>x.hidden=k>=15);
   car.hidden=!visibles.length;pos=0;if(visibles.length)lancer();
