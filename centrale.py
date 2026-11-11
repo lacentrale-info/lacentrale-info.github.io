@@ -605,6 +605,9 @@ body{{margin:0;background:var(--fond);color:var(--texte);font:15px/1.5 system-ui
 header{{background:var(--nuit);color:#ece7dd;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:8px 24px;flex-wrap:wrap;text-align:center}}
 header h1{{margin:0;font:800 clamp(28px,4vw,42px)/1 Georgia,"Times New Roman",serif;letter-spacing:.04em;text-transform:uppercase}}
 header h1 span{{color:#ff6b5e}}
+header h1 a{{color:inherit;text-decoration:none}}
+.recherche{{display:flex;gap:4px}}
+.recherche button{{padding:5px 10px}}
 header p{{margin:0;opacity:.85;font-size:14px;font-style:italic;font-family:Georgia,serif}}
 header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .onglets{{background:var(--nuit);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px 16px;padding:0 16px;border-top:1px solid #333}}
@@ -737,7 +740,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 @media (prefers-reduced-motion:reduce){{.piste,.carte,.progression.court{{animation:none}}.diapo,.diapo img{{transition:none}}}}
 [hidden]{{display:none!important}}
 </style></head><body>
-<header><h1>La <span>Centrale</span></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
+<header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
 <p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><div class="regions"><button class="onglet actif" data-region="">À la une</button>{onglets}
@@ -745,7 +748,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <div class="langues" role="group" aria-label="Langue"><button class="langue actif" data-langue="">Toutes</button><button class="langue" data-langue="fr">FR</button><button class="langue" data-langue="en">EN</button><button class="langue" data-langue="nl">NL</button></div></nav>
 <div class="panneau-dossiers" id="panneau-dossiers" hidden>{boutons_dossiers}<a href="#bloc-dossiers" class="dossier-lien">Dossiers documentés (faits et sources) ↓</a></div>
 <div class="barre">
-  <input id="recherche" type="search" placeholder="Rechercher un mot, un sujet…">
+  <form class="recherche" id="form-recherche" role="search"><input id="recherche" type="search" enterkeyhint="search" placeholder="Rechercher un mot, un sujet…"><button type="submit" aria-label="Rechercher">🔍</button></form>
   <button class="filtre-theme actif" data-theme="">Tout</button>{boutons_themes}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
@@ -843,7 +846,8 @@ function filtrer(){{
   document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;
   if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
   if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;filtre?pause():lancer();
-  document.getElementById('titre-fil').textContent=[region,selection?'Ma sélection':source||theme].filter(Boolean).join(' · ')||'Toutes les publications';
+  const titre=[region,selection?'Ma sélection':source||theme].filter(Boolean).join(' · ');
+  document.getElementById('titre-fil').textContent=q?`${{n}} résultat${{n>1?'s':''}} pour « ${{q}} »`+(titre?' · '+titre:''):titre||'Toutes les publications';
 }}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{
   theme=b.dataset.theme;source='';selection=false;
@@ -856,6 +860,15 @@ document.getElementById('ma-selection').onclick=e=>{{
   selection=!selection;theme='';source='';
   document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===e.target&&selection));filtrer()}};
 document.getElementById('recherche').oninput=filtrer;
+document.getElementById('form-recherche').onsubmit=ev=>{{ev.preventDefault();filtrer();
+  document.getElementById('recherche').blur();document.getElementById('titre-fil').scrollIntoView({{behavior:'smooth'}})}};
+/* clic sur « La Centrale » : retour à la page d'accueil, tous les filtres effacés */
+document.getElementById('accueil').onclick=ev=>{{ev.preventDefault();
+  region='';theme='';source='';selection=false;document.getElementById('recherche').value='';
+  document.querySelectorAll('.onglet[data-region]').forEach(x=>x.classList.toggle('actif',!x.dataset.region));
+  document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x.dataset.theme===''));
+  document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.remove('actif'));
+  document.getElementById('panneau-dossiers').hidden=true;filtrer();scrollTo({{top:0,behavior:'smooth'}})}};
 document.querySelectorAll('.langue').forEach(b=>b.onclick=()=>{{langue=b.dataset.langue;try{{localStorage.setItem('centrale-langue',langue)}}catch(x){{}}
   document.querySelectorAll('.langue').forEach(x=>x.classList.toggle('actif',x===b));majLangueHaut();filtrer()}});
 const panneau=document.getElementById('panneau-dossiers'),boutonDossiers=document.getElementById('ouvrir-dossiers');
