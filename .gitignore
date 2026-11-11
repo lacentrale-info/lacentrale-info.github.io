@@ -5,3 +5,5 @@ config.json
 envois.json
 public/
 outils/
+cache.json
+documents/

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-from telephone import en_articles, infos_page, relever_envois
+from telephone import en_articles, infos_page, lire_envois, relever_envois
 
 DOSSIER = Path(__file__).resolve().parent
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -476,6 +476,7 @@ def generer_page(articles, etat_sources):
             break
 
     pris = {a["lien"] for a in diapos}
+    nos_publications = [a for a in articles if a.get("perso")][:6]
     mosaique, par_source = [], {}
     for a in articles:  # 2 articles maximum par source pour varier
         if a["image"] and a["lien"] not in pris and par_source.get(a["source"], 0) < 2:
@@ -491,7 +492,8 @@ def generer_page(articles, etat_sources):
 
     def carte(a):
         img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
-        return f'''<article class="carte" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
+        ancre = f' id="{e(a["lien"][1:])}"' if a["lien"].startswith("#") else ""
+        return f'''<article class="carte"{ancre} data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
       <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
@@ -578,6 +580,10 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.6;margin-top:4px}}
 .etiq.etabli{{background:#1f7a4d;color:#fff}}.etiq.debattu{{background:#b7791f;color:#fff}}
 .dossier ul{{margin:8px 0 0;padding-left:18px;font-size:13px}}
 .dossier a{{color:var(--accent)}}
+.nos-pub{{max-width:1240px;margin:20px auto 0;padding:0 20px}}
+.grille-pub{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:12px}}
+.grille-pub .carte{{border:2px solid var(--accent)}}
+.grille-pub .carte .lien{{display:block}}.grille-pub .carte img{{width:100%;aspect-ratio:16/9}}
 .mosaique{{max-width:1240px;margin:24px auto 0;padding:0 20px}}
 .grille{{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:8px}}
 .tuile{{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
@@ -681,6 +687,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
+<section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><h2>Nos publications</h2><div class="grille-pub">{"".join(carte(a) for a in nos_publications)}</div></section>
 <section class="haut" id="bloc-une">
   <div class="carrousel" id="carrousel">
     {"".join(diapo(a, i) for i, a in enumerate(diapos))}
@@ -765,6 +772,7 @@ function filtrer(){{
   document.getElementById('vide').hidden=n>0;
   const filtre=!!(region||theme||source||selection||q);
   document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;
+  if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
   if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;filtre?pause():lancer();
   document.getElementById('titre-fil').textContent=[region,selection?'Ma sélection':source||theme].filter(Boolean).join(' · ')||'Toutes les publications';
 }}
@@ -789,7 +797,11 @@ addEventListener('scroll',()=>haut.hidden=scrollY<800,{{passive:true}});haut.onc
 ''' + PARTAGE + '</body></html>'
 
 
-def main():
+CACHE = DOSSIER / "cache.json"
+
+
+def collecter():
+    """Récupère toutes les sources (réseau) et garde le résultat dans cache.json."""
     sources = json.loads((DOSSIER / "sources.json").read_text(encoding="utf-8"))
     print(f"Récupération de {len(sources)} sources…")
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -804,13 +816,22 @@ def main():
         etat.append((source, len(arts), err))
         print(f"  {'OK ' if not err else 'ERR'} {source['nom']:<35} {len(arts) if not err else err}")
 
-    # liens envoyés depuis le téléphone au bot Telegram
-    envois, statut = relever_envois()
-    print(f"  Téléphone : {statut}")
-    for a in en_articles(envois):
-        if a["lien"] not in deja_vus:
-            deja_vus.add(a["lien"])
-            articles.append(a)
+    CACHE.write_text(json.dumps({
+        "articles": [{**x, "date": x["date"].isoformat() if x["date"] else None} for x in articles],
+        "etat": etat,
+    }, ensure_ascii=False), encoding="utf-8")
+    return articles, etat
+
+
+def construire(articles, etat):
+    """Ajoute vos publications (Studio, bot Telegram) aux articles et écrit index.html."""
+    articles = list(articles)
+    deja_vus = {a["lien"] for a in articles}
+    for a in en_articles(lire_envois()):
+        if a["lien"] in deja_vus:  # votre publication remplace l'article venu d'un flux
+            articles = [x for x in articles if x["lien"] != a["lien"]]
+        deja_vus.add(a["lien"])
+        articles.append(a)
 
     maintenant = datetime.now(timezone.utc)
     for a in articles:
@@ -824,7 +845,28 @@ def main():
 
     page = DOSSIER / "index.html"
     page.write_text(generer_page(articles, etat), encoding="utf-8")
-    print(f"\n{len(articles)} articles -> {page}")
+    publique = DOSSIER / "public"  # copie servie par le lien de partage
+    if publique.exists():
+        (publique / "index.html").write_text(page.read_text(encoding="utf-8"), encoding="utf-8")
+    return page, len(articles)
+
+
+def reconstruire():
+    """Refait la page sans retélécharger les sources (utilisé par le Studio)."""
+    try:
+        cache = json.loads(CACHE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return construire(*collecter())
+    articles = [{**a, "date": datetime.fromisoformat(a["date"]) if a["date"] else None} for a in cache["articles"]]
+    return construire(articles, [tuple(e) for e in cache["etat"]])
+
+
+def main():
+    articles, etat = collecter()
+    _, statut = relever_envois()  # liens et PDF envoyés au bot Telegram
+    print(f"  Téléphone : {statut}")
+    page, n = construire(articles, etat)
+    print(f"\n{n} articles -> {page}")
     webbrowser.open(page.as_uri())
 
 

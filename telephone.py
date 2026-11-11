@@ -220,11 +220,16 @@ def relever_envois():
     return envois, f"{nouveaux} nouveau(x) envoi(s) reçu(s)"
 
 
+def lire_envois():
+    return lire_json(ENVOIS, [])
+
+
 def en_articles(envois):
-    """Convertit les envois au format des articles de centrale.py."""
+    """Convertit vos publications au format des articles de centrale.py."""
     return [{
         "titre": x["titre"], "lien": x["lien"],
-        "resume": (f"💬 {x['commentaire']} — " if x.get("commentaire") else "") + (x.get("resume") or "")[:260],
+        "resume": (f"💬 {x['commentaire']} — " if x.get("commentaire") else "")
+                  + ((x.get("resume") or "") if x["lien"].startswith("#") else (x.get("resume") or "")[:260]),
         "image": x.get("image", ""), "date": datetime.fromisoformat(x["date"]),
-        "source": "Mes envois", "theme": "Mes envois",
+        "source": x.get("site") or "La Centrale", "theme": "Nos publications", "perso": True,
     } for x in envois]
