@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16150f"><link rel="manifest" href="manifest.json">
+<link rel="icon" href="icone.svg"><link rel="apple-touch-icon" href="icone.svg">
+<meta name="robots" content="noindex">
+<title>Le Studio – La Centrale</title>
+<style>
+:root{--fond:#f6f3ee;--carte:#fff;--texte:#1d1b18;--doux:#6b645a;--ligne:#e2dcd2;--accent:#b3261e;--ok:#1f7a4d;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--fond:#16150f;--carte:#211f19;--texte:#ece7dd;--doux:#a39b8d;--ligne:#36322a;--accent:#ff6b5e;--ok:#3fb07a;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fond);color:var(--texte);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+header{background:#16150f;color:#ece7dd;margin:0 -16px 18px;padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+header h1{margin:0;font:800 22px Georgia,serif;letter-spacing:.04em;text-transform:uppercase}
+header h1 span{color:#ff6b5e}
+header nav{display:flex;gap:8px}
+header a,header button{color:#ece7dd;font:14px system-ui,sans-serif;border:1px solid #555;border-radius:20px;padding:5px 12px;text-decoration:none;background:none;cursor:pointer}
+main{max-width:640px;margin:0 auto}
+label{display:block;font-size:13px;font-weight:600;color:var(--doux);margin:14px 0 5px}
+textarea,input[type=text],input[type=password]{width:100%;padding:12px;border:1px solid var(--ligne);border-radius:10px;background:var(--carte);color:var(--texte);font:inherit}
+textarea{min-height:130px;resize:vertical}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:13px 18px;background:var(--accent);color:#fff;font-weight:700}
+button.second{background:var(--carte);color:var(--texte);border:1px solid var(--ligne);font-weight:500}
+.fichier{display:flex;align-items:center;gap:10px;border:2px dashed var(--ligne);border-radius:10px;padding:14px;background:var(--carte);cursor:pointer;color:var(--texte);font-size:15px;font-weight:400;margin-top:12px}
+.fichier input{display:none}
+.apercu{margin-top:16px;background:var(--carte);border:1px solid var(--ligne);border-radius:12px;padding:12px 14px}
+.apercu .src{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+.apercu h3{font:700 19px/1.3 Georgia,serif;margin:4px 0 6px;overflow-wrap:anywhere}
+.apercu p{margin:0;color:var(--doux);font-size:14px;overflow-wrap:anywhere}
+.apercu .com{color:var(--texte);font-style:italic;margin-bottom:6px}
+.apercu .note{font-size:12px;margin-top:8px}
+details{margin-top:6px}summary{cursor:pointer;color:var(--doux);font-size:14px;padding:8px 0}
+.case{display:flex;gap:10px;align-items:center;margin:16px 0 4px;font-size:15px;font-weight:400;color:var(--texte)}
+.case input{width:20px;height:20px}
+#publier{width:100%;margin-top:14px;font-size:17px;padding:15px}
+.message{margin-top:12px;padding:12px;border-radius:10px;background:var(--carte);border-left:4px solid var(--ok)}
+.message.erreur{border-left-color:var(--accent)}
+h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:8px;margin:34px 0 10px}
+.pub{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--ligne)}
+.pub div{flex:1;min-width:0}
+.pub b{display:block;font-family:Georgia,serif;overflow-wrap:anywhere}
+.pub small{color:var(--doux)}
+.pub button,.pub a button{padding:6px 10px;font-size:13px}
+.etapes{background:var(--carte);border:1px solid var(--ligne);border-radius:12px;padding:6px 18px 16px}
+.etapes li{margin:8px 0}
+.etapes code{background:var(--fond);padding:1px 6px;border-radius:4px}
+[hidden]{display:none!important}
+</style></head><body>
+<header><h1>Le <span>Studio</span></h1>
+  <nav><a href="../" target="_blank">Voir le site ↗</a><button id="btn-reglages" type="button">⚙</button></nav></header>
+<main>
+
+<section id="ecran-cle" hidden>
+  <h2>Première connexion</h2>
+  <div class="etapes">
+    <p>Le Studio a besoin d'une <b>clé personnelle GitHub</b> pour publier. Elle reste uniquement sur cet appareil.</p>
+    <ol>
+      <li>Ouvrez <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">cette page GitHub</a> (connecté à <b>lacentrale-info</b>).</li>
+      <li><b>Token name</b> : <code>Studio tablette</code> · <b>Expiration</b> : <code>No expiration</code> (ou 1 an).</li>
+      <li><b>Repository access</b> : <i>Only select repositories</i> → <code>lacentrale-info.github.io</code>.</li>
+      <li><b>Permissions</b> → <b>Repository permissions</b> → <b>Contents</b> : <i>Read and write</i>.</li>
+      <li>En bas : <b>Generate token</b>, puis copiez la clé (elle commence par <code>github_pat_</code>).</li>
+    </ol>
+    <label for="cle">Collez votre clé ici</label>
+    <input id="cle" type="password" autocomplete="off" placeholder="github_pat_…">
+    <button id="enregistrer-cle" type="button" style="width:100%;margin-top:12px">Enregistrer</button>
+    <div class="message erreur" id="msg-cle" hidden></div>
+  </div>
+</section>
+
+<section id="ecran-studio" hidden>
+<form id="form">
+  <label for="texte">Collez un lien, un article ou votre texte</label>
+  <textarea id="texte" placeholder="https://… ou votre texte (la première ligne devient le titre)"></textarea>
+  <label class="fichier" for="fichier">📎 <span id="nom-fichier">Ajouter un PDF, une image…</span><input id="fichier" type="file"></label>
+  <label for="commentaire">Votre commentaire (facultatif)</label>
+  <input id="commentaire" type="text" placeholder="Ce que vous voulez dire en publiant">
+  <details><summary>Modifier le titre ou la source</summary>
+    <label for="titre">Titre</label><input id="titre" type="text" placeholder="Trouvé automatiquement">
+    <label for="source">Source</label><input id="source" type="text" placeholder="Trouvée automatiquement">
+  </details>
+  <div class="apercu" id="apercu" hidden></div>
+  <label class="case"><input type="checkbox" id="telegram" checked> Publier aussi sur le canal Telegram (s'il est configuré)</label>
+  <button id="publier" type="submit">Publier</button>
+  <div class="message" id="message" hidden></div>
+</form>
+<h2>Mes publications</h2>
+<div id="liste"><p style="color:var(--doux)">Chargement…</p></div>
+</section>
+</main>
+<script>
+const DEPOT='lacentrale-info/lacentrale-info.github.io';
+const API='https://api.github.com/repos/'+DEPOT+'/contents/';
+const $=id=>document.getElementById(id);
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+const lire=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
+const ecrire=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+let cle=lire('studio-cle');
+
+async function gh(chemin,options={}){
+  const r=await fetch(API+chemin,{...options,headers:{'Authorization':'Bearer '+cle,'Accept':'application/vnd.github+json',...(options.headers||{})}});
+  if(r.status===401||r.status===403)throw new Error('Clé GitHub refusée ou sans droit d\'écriture (⚙ pour la changer).');
+  return r;
+}
+const enBase64Texte=t=>btoa(unescape(encodeURIComponent(t)));
+const enBase64Fichier=f=>new Promise((ok,ko)=>{const l=new FileReader();l.onload=()=>ok(l.result.split(',')[1]);l.onerror=ko;l.readAsDataURL(f)});
+async function deposer(chemin,base64,message){
+  const r=await gh(chemin,{method:'PUT',body:JSON.stringify({message,content:base64})});
+  if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.message||('Erreur GitHub '+r.status))}
+}
+const horodatage=()=>new Date().toISOString().replace(/[:.]/g,'-');
+const nomPropre=n=>n.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'')||'document';
+
+/* écrans */
+function afficher(){$('ecran-cle').hidden=!!cle;$('ecran-studio').hidden=!cle;if(cle)charger()}
+$('btn-reglages').onclick=()=>{$('cle').value='';$('ecran-cle').hidden=false;$('ecran-studio').hidden=true};
+$('enregistrer-cle').onclick=async()=>{
+  const v=$('cle').value.trim();const m=$('msg-cle');
+  if(!v){return}
+  cle=v;
+  try{const r=await gh('sources.json');if(!r.ok)throw new Error('Dépôt introuvable avec cette clé.');ecrire('studio-cle',v);m.hidden=true;afficher()}
+  catch(e){cle=lire('studio-cle');m.textContent='⚠️ '+e.message;m.hidden=false}
+};
+
+/* aperçu */
+function lienDans(t){const m=(t||'').match(/https?:\/\/\S+/);return m?m[0]:''}
+function majApercu(){
+  const t=$('texte').value.trim(),lien=lienDans(t),f=$('fichier').files[0];
+  const sansLien=t.replace(lien,'').trim();
+  const titre=$('titre').value||(lien?'':sansLien.split('\n')[0])||(f?f.name:'')||(lien?'Titre de l\'article':'');
+  const source=$('source').value||(lien?new URL(lien).hostname.replace(/^www\./,''):f?'Document':'La Centrale');
+  const resume=lien?'':sansLien.split('\n').slice(1).join(' ');
+  const com=$('commentaire').value;
+  $('apercu').hidden=!(t||f);
+  $('apercu').innerHTML=`<div class="src">${esc(source)}${f?' · 📄 '+esc(f.name):''}</div><h3>${esc(titre)}</h3>`+
+    (com?`<p class="com">💬 ${esc(com)}</p>`:'')+`<p>${esc(resume.slice(0,280))}</p>`+
+    (lien?'<p class="note">Le titre, l\'image et le résumé de l\'article seront ajoutés automatiquement.</p>':'');
+}
+['texte','commentaire','titre','source'].forEach(id=>$(id).oninput=majApercu);
+$('fichier').onchange=()=>{const f=$('fichier').files[0];$('nom-fichier').textContent=f?f.name:'Ajouter un PDF, une image…';majApercu()};
+
+/* publier */
+$('form').onsubmit=async e=>{
+  e.preventDefault();
+  const m=$('message'),b=$('publier'),f=$('fichier').files[0];
+  const texte=$('texte').value.trim();
+  if(!texte&&!f){m.className='message erreur';m.textContent='⚠️ Collez un lien, un texte ou ajoutez un fichier.';m.hidden=false;return}
+  if(f&&f.size>45*1024*1024){m.className='message erreur';m.textContent='⚠️ Fichier trop gros (45 Mo maximum).';m.hidden=false;return}
+  b.disabled=true;b.textContent='Envoi…';
+  try{
+    const h=horodatage();let document_='';
+    if(f){document_='documents/'+h.slice(0,10)+'-'+nomPropre(f.name);b.textContent='Envoi du fichier…';
+      await deposer(document_,await enBase64Fichier(f),'Studio : document '+f.name)}
+    const demande={type:'publication',texte,commentaire:$('commentaire').value,titre:$('titre').value,
+      source:$('source').value,telegram:$('telegram').checked?'1':'0',document:document_,date:new Date().toISOString()};
+    await deposer('boite/'+h+'.json',enBase64Texte(JSON.stringify(demande,null,1)),'Studio : nouvelle publication');
+    m.className='message';m.textContent='✅ Envoyé ! Visible sur le site d\'ici 2 à 5 minutes.';
+    $('form').reset();$('nom-fichier').textContent='Ajouter un PDF, une image…';$('apercu').hidden=true;charger();
+  }catch(err){m.className='message erreur';m.textContent='⚠️ '+err.message}
+  m.hidden=false;b.disabled=false;b.textContent='Publier';
+};
+
+/* liste */
+async function charger(){
+  try{
+    const [rp,rb]=await Promise.all([gh('envois.json',{headers:{'Accept':'application/vnd.github.raw+json'}}),gh('boite')]);
+    const pubs=rp.ok?await rp.json():[];const attente=rb.ok?(await rb.json()).filter(x=>x.name.endsWith('.json')):[];
+    const html=attente.map(x=>`<div class="pub"><div><b>⏳ Publication en cours de traitement…</b><small>apparaîtra sur le site dans quelques minutes</small></div></div>`).join('')+
+      pubs.slice(0,40).map(p=>{
+        const lien=p.lien.startsWith('documents/')?'../'+p.lien:p.lien.startsWith('#')?'../'+p.lien:p.lien;
+        return `<div class="pub"><div><b>${esc(p.titre)}</b><small>${esc(p.site||'')} · ${new Date(p.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}${p.publie?' · ✈ Telegram':''}</small></div>
+        <a href="${esc(lien)}" target="_blank"><button class="second" type="button">Voir</button></a>
+        <button class="second" type="button" data-lien="${esc(p.lien)}">Retirer</button></div>`}).join('');
+    $('liste').innerHTML=html||'<p style="color:var(--doux)">Rien encore. Votre première publication apparaîtra ici.</p>';
+    document.querySelectorAll('[data-lien]').forEach(b=>b.onclick=async()=>{
+      if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmer ?';return}
+      b.disabled=true;b.textContent='…';
+      try{await deposer('boite/'+horodatage()+'-retrait.json',enBase64Texte(JSON.stringify({type:'suppression',lien:b.dataset.lien})),'Studio : retrait');
+        b.textContent='Retrait demandé'}catch(e){b.textContent='Échec'}});
+  }catch(e){$('liste').innerHTML='<p class="message erreur">⚠️ '+esc(e.message)+'</p>'}
+}
+const p=new URLSearchParams(location.search);
+if(p.get('lien')||p.get('text')){$('texte').value=[p.get('text'),p.get('lien')].filter(Boolean).join(' ');majApercu()}
+afficher();
+</script>
+</body></html>
