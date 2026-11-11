@@ -206,6 +206,21 @@ _MOTIFS_REGIONS = {
 }
 
 
+# Détection de la langue : on compte les petits mots les plus fréquents de chaque langue.
+MOTS_LANGUE = {
+    "fr": {"le", "la", "les", "des", "est", "et", "une", "du", "pour", "dans", "que", "qui", "sur", "pas", "au", "avec", "ce", "sont", "par", "aux"},
+    "en": {"the", "and", "is", "of", "to", "in", "for", "that", "with", "on", "are", "was", "by", "from", "this", "it", "be", "as", "at", "an"},
+    "nl": {"de", "het", "een", "en", "van", "is", "dat", "op", "voor", "met", "niet", "zijn", "aan", "bij", "ook", "naar", "om", "wordt", "werd", "kwam"},
+}
+
+
+def langue_de(article):
+    mots = re.findall(r"[a-zà-ÿ]+", f'{article["titre"]} {article["resume"]}'.lower())
+    scores = {l: sum(m in liste for m in mots) for l, liste in MOTS_LANGUE.items()}
+    meilleure = max(scores, key=scores.get)
+    return meilleure if scores[meilleure] else "fr"
+
+
 def regions_de(article):
     texte = f'{article["titre"]} {article["resume"]}'
     trouvees = [r for r, motif in _MOTIFS_REGIONS.items() if motif.search(texte)]
@@ -466,17 +481,17 @@ def generer_page(articles, etat_sources):
         if a["image"] and a["lien"] not in pris and par_source.get(a["source"], 0) < 2:
             mosaique.append(a)
             par_source[a["source"]] = par_source.get(a["source"], 0) + 1
-        if len(mosaique) == 14:
+        if len(mosaique) == 60:
             break
 
     def tuile(a):
-        return f'''<a class="tuile" href="{e(a["lien"])}" target="_blank" rel="noopener">
+        return f'''<a class="tuile" data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener">
   <img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
   <span class="tsrc">{e(a["source"])}</span><span class="tt">{e(a["titre"])}</span></a>'''
 
     def carte(a):
         img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
-        return f'''<article class="carte" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-regions="{e("|".join(a.get("regions", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
+        return f'''<article class="carte" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
       <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
@@ -492,7 +507,7 @@ def generer_page(articles, etat_sources):
 </article>'''
 
     def diapo(a, i):
-        return f'''<a class="diapo{" active" if i == 0 else ""}" href="{e(a["lien"])}" target="_blank" rel="noopener">
+        return f'''<a class="diapo{" active" if i == 0 else ""}" data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener">
   <img src="{e(a["image"])}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
   <div class="voile"><div class="meta"><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}"></time></div>
   <h3>{e(a["titre"])}</h3><p>{e(a["resume"])}</p></div></a>'''
@@ -508,13 +523,13 @@ def generer_page(articles, etat_sources):
         fil.append(carte(a))
 
     bandeau = "".join(
-        f'<a href="{e(a["lien"])}" target="_blank" rel="noopener"><b>{e(a["source"])}</b> {e(a["titre"])}</a>'
-        for a in articles[:25]
+        f'<a data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener"><b>{e(a["source"])}</b> {e(a["titre"])}</a>'
+        for a in articles[:60]
     )
     derniere_minute = "".join(
-        f'<li><a href="{e(a["lien"])}" target="_blank" rel="noopener"><time class="rel" data-ts="{ts(a)}"></time>'
+        f'<li data-langue="{a.get("langue", "fr")}"><a href="{e(a["lien"])}" target="_blank" rel="noopener"><time class="rel" data-ts="{ts(a)}"></time>'
         f'<span class="src">{e(a["source"])}</span><span class="t">{e(a["titre"])}</span></a></li>'
-        for a in articles[:9]
+        for a in articles[:30]
     )
     liste_sources = "".join(
         f'<li><button class="filtre-source" data-source="{e(s["nom"])}">{e(s["nom"])}</button>'
@@ -587,6 +602,7 @@ header .compteur{{display:inline-block;margin-top:10px;background:#b3261e;color:
 .barre{{position:sticky;top:0;z-index:5;background:var(--fond);border-bottom:1px solid var(--ligne);padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}}
 .barre input{{flex:1 1 220px;padding:8px 12px;border:1px solid var(--ligne);border-radius:6px;background:var(--carte);color:var(--texte);font:inherit}}
 .barre button,.sources button{{font:inherit;cursor:pointer;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);border-radius:20px;padding:5px 12px}}
+.barre select{{font:inherit;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);border-radius:20px;padding:5px 10px;cursor:pointer}}
 .barre button.actif{{background:var(--accent);border-color:var(--accent);color:#fff}}
 .haut{{max-width:1240px;margin:0 auto;padding:20px 20px 0;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px}}
 @media (max-width:900px){{.haut{{grid-template-columns:1fr}}}}
@@ -661,6 +677,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <div class="barre">
   <input id="recherche" type="search" placeholder="Rechercher un mot, un sujet…">
   <button class="filtre-theme actif" data-theme="">Tout</button>{boutons_themes}
+  <select id="langue" aria-label="Langue des articles"><option value="">🌐 Toutes les langues</option><option value="fr">Français</option><option value="en">English</option><option value="nl">Nederlands</option></select>
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
@@ -691,6 +708,8 @@ const cartes=[...document.querySelectorAll('#fil .carte')];
 const jours=[...document.querySelectorAll('#fil .jour')];
 const etoiles=document.querySelectorAll('.etoile');
 let theme='',source='',selection=false,region='';
+let langue='';try{{langue=localStorage.getItem('centrale-langue')||''}}catch(e){{}}
+document.getElementById('langue').value=langue;
 let favoris=new Set();
 try{{favoris=new Set(JSON.parse(localStorage.getItem('centrale-favoris')||'[]'))}}catch(e){{}}
 function sauver(){{try{{localStorage.setItem('centrale-favoris',JSON.stringify([...favoris]))}}catch(e){{}}}}
@@ -710,25 +729,34 @@ majHeures();setInterval(majHeures,60000);
 
 /* carrousel */
 const diapos=[...document.querySelectorAll('.diapo')],points=[...document.querySelectorAll('.points button')],barre=document.querySelector('.progression');
-let idx=0,minuteur=null;
+let idx=0,pos=0,minuteur=null,visibles=diapos.map((_,k)=>k);
 function montrer(i){{
-  if(!diapos.length)return;idx=(i+diapos.length)%diapos.length;
+  if(!visibles.length)return;pos=(i+visibles.length)%visibles.length;idx=visibles[pos];
   diapos.forEach((d,k)=>d.classList.toggle('active',k===idx));points.forEach((p,k)=>p.classList.toggle('active',k===idx));
   barre.classList.remove('court');void barre.offsetWidth;barre.classList.add('court');
 }}
-function lancer(){{clearInterval(minuteur);minuteur=setInterval(()=>montrer(idx+1),6000);montrer(idx)}}
+function lancer(){{clearInterval(minuteur);minuteur=setInterval(()=>montrer(pos+1),6000);montrer(pos)}}
 function pause(){{clearInterval(minuteur);barre.classList.remove('court')}}
-document.querySelector('.fleche.g').onclick=()=>{{montrer(idx-1);lancer()}};
-document.querySelector('.fleche.d').onclick=()=>{{montrer(idx+1);lancer()}};
-points.forEach((p,k)=>p.onclick=()=>{{montrer(k);lancer()}});
+document.querySelector('.fleche.g').onclick=()=>{{montrer(pos-1);lancer()}};
+document.querySelector('.fleche.d').onclick=()=>{{montrer(pos+1);lancer()}};
+points.forEach((p,k)=>p.onclick=()=>{{montrer(visibles.indexOf(k));lancer()}});
 const car=document.getElementById('carrousel');car.onmouseenter=pause;car.onmouseleave=lancer;
-if(diapos.length)lancer();else car.hidden=true;
+/* haut de page limité à la langue choisie */
+function majLangueHaut(){{
+  visibles=diapos.map((_,k)=>k).filter(k=>!langue||diapos[k].dataset.langue===langue);
+  points.forEach((p,k)=>p.hidden=!visibles.includes(k));
+  document.querySelectorAll('.tuile,.minute li,.piste a').forEach(x=>x.hidden=!!langue&&x.dataset.langue!==langue);
+  document.querySelectorAll('.tuile:not([hidden])').forEach((x,k)=>x.hidden=k>=14);
+  document.querySelectorAll('.minute li:not([hidden])').forEach((x,k)=>x.hidden=k>=9);
+  car.hidden=!visibles.length;pos=0;if(visibles.length)lancer();
+}}
+majLangueHaut();
 
 function filtrer(){{
   const q=document.getElementById('recherche').value.toLowerCase().trim();
   let n=0;
   cartes.forEach(c=>{{
-    const ok=(!region||c.dataset.regions.split('|').includes(region))&&(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
+    const ok=(!langue||c.dataset.langue===langue)&&(!region||c.dataset.regions.split('|').includes(region))&&(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
       &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q));
     c.hidden=!ok;if(ok)n++;
   }});
@@ -750,6 +778,7 @@ document.getElementById('ma-selection').onclick=e=>{{
   selection=!selection;theme='';source='';
   document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===e.target&&selection));filtrer()}};
 document.getElementById('recherche').oninput=filtrer;
+document.getElementById('langue').onchange=e=>{{langue=e.target.value;try{{localStorage.setItem('centrale-langue',langue)}}catch(x){{}}majLangueHaut();filtrer()}};
 document.querySelectorAll('.onglet').forEach(b=>b.onclick=()=>{{region=b.dataset.region;
   document.querySelectorAll('.onglet').forEach(x=>x.classList.toggle('actif',x===b));filtrer()}});
 etoiles.forEach(b=>b.onclick=()=>{{const l=b.closest('.carte').dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
@@ -788,6 +817,7 @@ def main():
         if a["date"] and a["date"] > maintenant:  # date d'un événement à venir, pas de publication
             a["date"] = None
         a["regions"] = regions_de(a)
+        a["langue"] = langue_de(a)
 
     # tri du plus récent au plus ancien (les articles sans date vont à la fin)
     articles.sort(key=lambda a: a["date"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
