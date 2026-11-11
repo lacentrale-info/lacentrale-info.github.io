@@ -562,11 +562,11 @@ def generer_page(articles, etat_sources):
 @media (prefers-color-scheme:dark){{:root{{--fond:#16150f;--carte:#211f19;--texte:#ece7dd;--doux:#a39b8d;--ligne:#36322a;--accent:#ff6b5e;--accent-doux:#3a1e1b;--nuit:#0b0a07;color-scheme:dark}}}}
 *{{box-sizing:border-box}}
 body{{margin:0;background:var(--fond);color:var(--texte);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}}
-header{{background:var(--nuit);color:#ece7dd;padding:22px 20px 18px;text-align:center}}
-header h1{{margin:0;font:800 clamp(34px,6vw,58px)/1 Georgia,"Times New Roman",serif;letter-spacing:.04em;text-transform:uppercase}}
+header{{background:var(--nuit);color:#ece7dd;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:8px 24px;flex-wrap:wrap;text-align:center}}
+header h1{{margin:0;font:800 clamp(28px,4vw,42px)/1 Georgia,"Times New Roman",serif;letter-spacing:.04em;text-transform:uppercase}}
 header h1 span{{color:#ff6b5e}}
-header p{{margin:8px 0 0;opacity:.85;font-size:15px;font-style:italic;font-family:Georgia,serif}}
-header p.maj{{font:12px system-ui,sans-serif;opacity:.6;margin-top:4px}}
+header p{{margin:0;opacity:.85;font-size:14px;font-style:italic;font-family:Georgia,serif}}
+header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .onglets{{background:var(--nuit);display:flex;justify-content:center;flex-wrap:wrap;gap:2px;padding:0 12px;border-top:1px solid #333}}
 .onglet{{font:700 14px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#cfc8bb;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;cursor:pointer}}
 .onglet:hover{{color:#fff}}
@@ -584,16 +584,16 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.6;margin-top:4px}}
 .grille-pub{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:12px}}
 .grille-pub .carte{{border:2px solid var(--accent)}}
 .grille-pub .carte .lien{{display:block}}.grille-pub .carte img{{width:100%;aspect-ratio:16/9}}
-.mosaique{{max-width:1240px;margin:24px auto 0;padding:0 20px}}
-.grille{{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:8px}}
-.tuile{{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
+.mosaique{{min-width:0;height:100%}}
+.grille{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:6px;height:100%}}
+.tuile{{position:relative;min-height:0;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
 .tuile img{{width:100%;height:100%;object-fit:cover;transition:transform .4s}}
 .tuile:hover img{{transform:scale(1.08)}}
 .tuile::after{{content:"";position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.9))}}
 .tsrc,.tt{{position:absolute;left:9px;right:9px;z-index:1}}
 .tsrc{{bottom:auto;top:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;background:#b3261e;border-radius:3px;padding:1px 5px;left:8px;right:auto}}
-.tt{{bottom:9px;font:700 13px/1.25 Georgia,serif;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}}
-header .compteur{{display:inline-block;margin-top:10px;background:#b3261e;color:#fff;border-radius:20px;padding:3px 14px;font-size:13px;font-weight:600}}
+.tt{{bottom:7px;font:700 12px/1.22 Georgia,serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
+header .compteur{{display:inline-block;background:#b3261e;color:#fff;border-radius:20px;padding:1px 10px;font-weight:600;margin-right:6px}}
 .bandeau{{display:flex;align-items:stretch;background:var(--carte);border-bottom:1px solid var(--ligne);overflow:hidden;font-size:14px}}
 .bandeau .direct{{flex:none;background:var(--accent);color:#fff;font-weight:800;letter-spacing:.08em;padding:9px 14px;display:flex;align-items:center;gap:8px;z-index:1}}
 .bandeau .direct::before{{content:"";width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}}
@@ -605,20 +605,26 @@ header .compteur{{display:inline-block;margin-top:10px;background:#b3261e;color:
 .piste a b{{color:var(--accent);margin-right:6px}}
 .piste a:hover{{text-decoration:underline}}
 @keyframes defile{{from{{transform:translateX(0)}}to{{transform:translateX(-50%)}}}}
-.barre{{position:sticky;top:0;z-index:5;background:var(--fond);border-bottom:1px solid var(--ligne);padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}}
-.barre input{{flex:1 1 220px;padding:8px 12px;border:1px solid var(--ligne);border-radius:6px;background:var(--carte);color:var(--texte);font:inherit}}
+.barre{{position:sticky;top:0;z-index:5;background:var(--fond);border-bottom:1px solid var(--ligne);padding:8px 20px;display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;gap:8px;align-items:center}}
+.barre>*{{flex:none}}
+.barre input{{width:220px}}
+.barre input{{padding:8px 12px;border:1px solid var(--ligne);border-radius:6px;background:var(--carte);color:var(--texte);font:inherit}}
 .barre button,.sources button{{font:inherit;cursor:pointer;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);border-radius:20px;padding:5px 12px}}
 .barre select{{font:inherit;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);border-radius:20px;padding:5px 10px;cursor:pointer}}
 .barre button.actif{{background:var(--accent);border-color:var(--accent);color:#fff}}
-.haut{{max-width:1240px;margin:0 auto;padding:20px 20px 0;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px}}
-@media (max-width:900px){{.haut{{grid-template-columns:1fr}}}}
-.carrousel{{position:relative;border-radius:10px;overflow:hidden;background:var(--nuit);aspect-ratio:16/9;min-height:300px}}
+.haut{{max-width:1320px;margin:0 auto;padding:14px 20px 0;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1.2fr) minmax(0,.95fr);gap:12px;height:clamp(380px,calc(100vh - 220px),540px)}}
+.haut>*{{min-height:0}}
+@media (max-width:1100px){{.haut{{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);height:auto}}.carrousel{{height:420px}}.minute{{height:420px}}
+  .mosaique{{grid-column:1/-1;order:3}}.grille{{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:none}}.tuile{{aspect-ratio:1}}}}
+@media (max-width:700px){{.haut{{grid-template-columns:minmax(0,1fr);padding:10px 12px 0}}.carrousel{{height:auto;aspect-ratio:4/3}}.minute{{height:auto;max-height:420px}}
+  .grille{{grid-template-columns:repeat(3,minmax(0,1fr))}}header .sous{{min-width:0;max-width:100%}}}}
+.carrousel{{position:relative;border-radius:10px;overflow:hidden;background:var(--nuit);height:100%}}
 .diapo{{position:absolute;inset:0;opacity:0;transition:opacity .8s;color:#fff;text-decoration:none;pointer-events:none}}
 .diapo.active{{opacity:1;pointer-events:auto}}
 .diapo img{{width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:transform 7s linear}}
 .diapo.active img{{transform:scale(1.12)}}
-.voile{{position:absolute;inset:auto 0 0 0;padding:70px 26px 30px;background:linear-gradient(transparent,rgba(0,0,0,.88))}}
-.voile h3{{font:700 clamp(20px,2.6vw,32px)/1.2 Georgia,serif;margin:6px 0 8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}}
+.voile{{position:absolute;inset:auto 0 0 0;padding:50px 20px 22px;background:linear-gradient(transparent,rgba(0,0,0,.88))}}
+.voile h3{{font:700 clamp(18px,1.9vw,26px)/1.2 Georgia,serif;margin:6px 0 8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}}
 .voile p{{margin:0;opacity:.85;font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
 .voile .meta{{color:#ddd}}.voile .src{{color:#ff8a7f}}.voile .theme{{background:rgba(255,255,255,.15)}}
 .fleche{{position:absolute;top:32%;transform:translateY(-50%);z-index:2;width:42px;height:42px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:24px;cursor:pointer}}
@@ -630,7 +636,8 @@ header .compteur{{display:inline-block;margin-top:10px;background:#b3261e;color:
 .progression{{position:absolute;left:0;bottom:0;height:4px;background:var(--accent);z-index:2;width:0}}
 .progression.court{{animation:progres 6s linear forwards}}
 @keyframes progres{{to{{width:100%}}}}
-.minute{{background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:16px;display:flex;flex-direction:column}}
+.minute{{background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;height:100%}}
+.minute h2{{margin-bottom:6px}}
 .minute ul{{list-style:none;margin:0;padding:0;overflow:auto}}
 .minute li a{{display:grid;grid-template-columns:62px 1fr;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--ligne);color:var(--texte);text-decoration:none}}
 .minute li:last-child a{{border:0}}
@@ -639,7 +646,7 @@ header .compteur{{display:inline-block;margin-top:10px;background:#b3261e;color:
 .minute .t{{font:600 14px/1.3 Georgia,serif}}
 .minute a:hover .t{{color:var(--accent)}}
 main{{max-width:1240px;margin:0 auto;padding:24px 20px;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:28px}}
-@media (max-width:900px){{main{{grid-template-columns:1fr}}}}
+@media (max-width:900px){{main{{grid-template-columns:minmax(0,1fr)}}}}
 h2{{font:700 13px/1 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:8px;margin:0 0 16px}}
 .fil{{display:flex;flex-direction:column;gap:12px}}
 .jour{{font:700 20px Georgia,serif;margin:14px 0 2px;display:flex;align-items:center;gap:12px}}
@@ -653,7 +660,7 @@ h2{{font:700 13px/1 system-ui,sans-serif;text-transform:uppercase;letter-spacing
 .corps{{padding:12px 44px 14px 14px}}
 .carte h3{{font:700 17px/1.3 Georgia,serif;margin:4px 0 6px}}
 .carte:hover h3{{color:var(--accent)}}
-.carte p{{margin:0;color:var(--doux);font-size:14px}}
+.carte p{{margin:0;color:var(--doux);font-size:14px;overflow-wrap:anywhere}}
 .meta{{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--doux);align-items:center}}
 .src{{font-weight:700;color:var(--accent)}}
 .theme{{background:var(--accent-doux);border-radius:3px;padding:0 6px}}
@@ -675,9 +682,8 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 @media (prefers-reduced-motion:reduce){{.piste,.carte,.progression.court{{animation:none}}.diapo,.diapo img{{transition:none}}}}
 [hidden]{{display:none!important}}
 </style></head><body>
-<header><h1>La <span>Centrale</span></h1><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
-<p class="maj">Mis à jour le {date_affichee(maintenant)}</p>
-<span class="compteur">{recents} nouvelles publications ces dernières 24 h</span></header>
+<header><h1>La <span>Centrale</span></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
+<p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><button class="onglet actif" data-region="">À la une</button>{onglets}</nav>
 <div class="barre">
@@ -687,7 +693,6 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
-<section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><h2>Nos publications</h2><div class="grille-pub">{"".join(carte(a) for a in nos_publications)}</div></section>
 <section class="haut" id="bloc-une">
   <div class="carrousel" id="carrousel">
     {"".join(diapo(a, i) for i, a in enumerate(diapos))}
@@ -695,9 +700,10 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
     <div class="points">{"".join(f'<button aria-label="Article {i + 1}"></button>' for i in range(len(diapos)))}</div>
     <div class="progression"></div>
   </div>
+  <div class="mosaique" id="bloc-mosaique"><div class="grille">{"".join(tuile(a) for a in mosaique)}</div></div>
   <div class="minute"><h2>Dernière minute</h2><ul>{derniere_minute}</ul></div>
 </section>
-<section class="mosaique" id="bloc-mosaique"><h2>Les articles du moment</h2><div class="grille">{"".join(tuile(a) for a in mosaique)}</div></section>
+<section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><h2>Nos publications</h2><div class="grille-pub">{"".join(carte(a) for a in nos_publications)}</div></section>
 <section class="dossiers" id="bloc-dossiers"{" hidden" if not dossiers else ""}><h2>Dossiers documentés · les faits et leurs sources</h2><div class="grille-dossiers">{bloc_dossiers}</div></section>
 <main>
   <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
@@ -753,8 +759,9 @@ function majLangueHaut(){{
   visibles=diapos.map((_,k)=>k).filter(k=>!langue||diapos[k].dataset.langue===langue);
   points.forEach((p,k)=>p.hidden=!visibles.includes(k));
   document.querySelectorAll('.tuile,.minute li,.piste a').forEach(x=>x.hidden=!!langue&&x.dataset.langue!==langue);
-  document.querySelectorAll('.tuile:not([hidden])').forEach((x,k)=>x.hidden=k>=14);
-  document.querySelectorAll('.minute li:not([hidden])').forEach((x,k)=>x.hidden=k>=9);
+  const maxTuiles=matchMedia('(min-width:1101px)').matches?9:12;
+  document.querySelectorAll('.tuile:not([hidden])').forEach((x,k)=>x.hidden=k>=maxTuiles);
+  document.querySelectorAll('.minute li:not([hidden])').forEach((x,k)=>x.hidden=k>=15);
   car.hidden=!visibles.length;pos=0;if(visibles.length)lancer();
 }}
 majLangueHaut();
