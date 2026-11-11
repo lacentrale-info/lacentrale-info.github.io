@@ -1,0 +1,11 @@
+{
+  "name": "Le Studio – La Centrale",
+  "short_name": "Studio",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#16150f",
+  "theme_color": "#16150f",
+  "icons": [{"src": "icone.svg", "sizes": "any", "type": "image/svg+xml"}],
+  "share_target": {"action": "./", "method": "GET", "params": {"title": "title", "text": "text", "url": "lien"}}
+}

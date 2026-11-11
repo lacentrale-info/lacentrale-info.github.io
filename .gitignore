@@ -2,8 +2,7 @@ index.html
 __pycache__/
 sauvegardes/
 config.json
-envois.json
+cache.json
 public/
 outils/
-cache.json
-documents/
+_site/

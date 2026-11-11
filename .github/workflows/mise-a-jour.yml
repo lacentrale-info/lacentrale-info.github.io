@@ -1,0 +1,63 @@
+name: Mise à jour de La Centrale
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # toutes les 15 minutes
+  push:
+    branches: [main]
+    paths: ["boite/**", "sources.json", "dossiers.json", "*.py", "studio/**", ".github/workflows/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: la-centrale
+  cancel-in-progress: false
+
+jobs:
+  mise-a-jour:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Récupérer les sources et vos publications
+        env:
+          TELEGRAM_JETON: ${{ secrets.TELEGRAM_JETON }}
+          TELEGRAM_CANAL: ${{ secrets.TELEGRAM_CANAL }}
+        run: python centrale.py --en-ligne
+
+      - name: Enregistrer vos publications
+        run: |
+          git config user.name "La Centrale (robot)"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Publications mises à jour"
+            git pull --rebase
+            git push
+          fi
+
+      - name: Préparer le site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r studio _site/
+          if [ -d documents ]; then cp -r documents _site/; fi
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploiement
+        uses: actions/deploy-pages@v4

@@ -7,6 +7,7 @@ Usage : python centrale.py   (ou double-clic sur lancer.bat)
 import html
 import json
 import re
+import sys
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -16,7 +17,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-from telephone import en_articles, infos_page, lire_envois, relever_envois
+from telephone import en_articles, infos_page, lire_envois, relever_envois, traiter_boite
 
 DOSSIER = Path(__file__).resolve().parent
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -873,12 +874,15 @@ def reconstruire():
 
 
 def main():
+    en_ligne = "--en-ligne" in sys.argv  # lancé par GitHub (site en ligne) : pas de navigateur
+    print(f"  Studio en ligne : {traiter_boite()}")
     articles, etat = collecter()
     _, statut = relever_envois()  # liens et PDF envoyés au bot Telegram
     print(f"  Téléphone : {statut}")
     page, n = construire(articles, etat)
     print(f"\n{n} articles -> {page}")
-    webbrowser.open(page.as_uri())
+    if not en_ligne:
+        webbrowser.open(page.as_uri())
 
 
 if __name__ == "__main__":
