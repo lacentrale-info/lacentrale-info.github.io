@@ -247,6 +247,100 @@ _MOTIFS_REGIONS = {
     for r, mots in REGIONS.items()
 }
 
+# Onglets principaux (rubriques) : les thèmes des sources qu'ils regroupent, puis leurs sous-chapitres.
+# Un sous-chapitre est repéré par mots-clés (même règle que les régions) ; « #Thème » = tous les articles de ce thème.
+# Un sous-chapitre rassemble les articles de TOUTES les sources (ex. « Dette » trouve aussi la dette dans Géopolitique).
+RUBRIQUES = {
+    "Géopolitique": {
+        "themes": ["Géopolitique", "Sources internationales", "Faits & Documents"],
+        "sujets": {
+            "Conflits & guerres": ["guerre*", "conflit*", "militaire*", "armée*", "frappe*", "missile*", "drone*",
+                                   "bombard*", "offensive*", "cessez-le-feu", "otan", "nato", "war", "military",
+                                   "troops", "génocide", "genocide"],
+            "Diplomatie": ["diplomat*", "négociation*", "sommet*", "traité*", "sanction*", "ambassad*", "summit*",
+                           "talks", "negotiat*", "lavrov", "rubio"],
+            "Énergie & ressources": ["énergie*", "energy", "pétrol*", "oil", "gaz", "gas", "gazoduc*", "pipeline*",
+                                     "nucléaire*", "nuclear", "uranium", "lithium", "terres rares", "minerai*",
+                                     "matières premières"],
+            "Renseignement": ["renseignement*", "espion*", "cia", "mossad", "nsa", "dgse", "mi6",
+                              "services secrets"],
+            "BRICS & multipolarité": ["brics", "multipolai*", "dédollaris*", "dedollar*", "sud global",
+                                      "global south", "eurasi*", "routes de la soie"],
+        },
+    },
+    "Économie": {
+        "themes": ["Économie", "Dette"],
+        "sujets": {
+            "Dette": ["#Dette", "dette*", "debt*", "déficit*", "endett*", "emprunt*", "fmi", "imf", "1973",
+                      "taux d'intérêt", "agences de notation"],
+            "Banques & monnaie": ["banque*", "bancaire*", "bank*", "bce", "fed", "réserve fédérale", "monnaie*",
+                                  "monétaire*", "euro numérique", "cbdc", "dollar*", "bitcoin", "crypto*",
+                                  "currency"],
+            "Inflation & prix": ["inflation", "prix", "pouvoir d'achat", "prices", "cost of living", "factur*"],
+            "Commerce & industrie": ["commerce", "commercia*", "droits de douane", "tarif*", "tariff*", "trade",
+                                     "industri*", "usine*", "export*", "import*", "délocalis*"],
+            "Travail & retraites": ["emploi*", "chômage", "salari*", "salaire*", "retraite*", "pension*", "grève*",
+                                    "syndica*", "workers", "jobs"],
+        },
+    },
+    "Politique": {
+        "themes": ["Politique", "Démocratie", "Médias"],
+        "sujets": {
+            "Démocratie & RIC": ["#Démocratie", "ric", "référendum*", "démocrati*", "constitution*", "constituant*",
+                                 "tirage au sort", "souveraineté", "chouard", "democracy"],
+            "Élections": ["élection*", "électora*", "scrutin*", "vote", "votes", "voter", "sondage*", "candidat*",
+                          "election*", "ballot"],
+            "Médias & censure": ["#Médias", "média*", "journalis*", "presse", "censur*", "propagande", "dsa",
+                                 "arcom", "media", "censorship", "fact-check*"],
+            "Libertés": ["liberté*", "libertés", "surveillance", "répression", "freedom", "free speech",
+                         "identité numérique", "contrôle social"],
+            "Justice & affaires": ["justice", "procès", "tribunal", "juge*", "corruption", "enquête*", "plainte*",
+                                   "scandale*", "trial", "lawsuit"],
+        },
+    },
+    "Société": {
+        "themes": ["Société"],
+        "sujets": {
+            "Éducation": ["école*", "éducation", "enseign*", "élève*", "université*", "school*", "education"],
+            "Immigration": ["immigr*", "migra*", "asile", "frontière*", "border*"],
+            "Technologie & IA": ["intelligence artificielle", "ia", "technolog*", "numérique", "algorithm*",
+                                 "réseaux sociaux", "5g", "big tech", "artificial intelligence"],
+            "Famille & valeurs": ["famille*", "familial*", "enfant*", "religion*", "église*", "chrétien*",
+                                  "family", "children"],
+            "Écologie & agriculture": ["climat*", "écolog*", "environnement*", "agricult*", "paysan*", "climate",
+                                       "farmer*"],
+        },
+    },
+    "Santé": {
+        "themes": ["Santé & Autonomie", "Psychédéliques"],
+        "sujets": {
+            "Vaccins & médicaments": ["vaccin*", "vaccine*", "pfizer", "moderna", "arnm", "mrna", "médicament*",
+                                      "pharma*", "covid*", "effets secondaires", "ansm"],
+            "Psychédéliques": ["#Psychédéliques", "psychédéli*", "psychedelic*", "psilocyb*", "mdma", "lsd",
+                               "ayahuasca", "kétamine", "ketamine"],
+            "Alimentation": ["aliment*", "nutrition*", "nourriture", "sucre*", "pesticide*", "food", "diet"],
+            "Soins & médecine": ["médecin*", "médecine*", "soignant*", "hôpita*", "patient*", "doctor*",
+                                 "hospital*", "cancer*"],
+        },
+    },
+}
+RUBRIQUE_DU_THEME = {t: r for r, d in RUBRIQUES.items() for t in d["themes"]}
+_MOTIFS_SUJETS = {}
+for _r in RUBRIQUES.values():
+    for _s, _mots in _r["sujets"].items():
+        _MOTIFS_SUJETS[_s] = (
+            {m[1:] for m in _mots if m.startswith("#")},
+            re.compile(r"\b(?:" + "|".join(re.escape(m[:-1]) + r"\w*" if m.endswith("*") else re.escape(m) + r"\b"
+                                           for m in _mots if not m.startswith("#")) + ")", re.I),
+        )
+
+
+def sujets_de(article):
+    """Sous-chapitres d'un article : par son thème (#Thème) ou par mots-clés dans le titre et le résumé."""
+    texte = f'{article["titre"]} {article["resume"]}'
+    return [s for s, (themes, motif) in _MOTIFS_SUJETS.items()
+            if article["theme"] in themes or motif.search(texte)]
+
 
 # Détection de la langue : on compte les petits mots les plus fréquents de chaque langue.
 MOTS_LANGUE = {
@@ -556,7 +650,7 @@ def generer_page(articles, etat_sources):
     def carte(a):
         img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
         ancre = f' id="{e(a["lien"][1:])}"' if a["lien"].startswith("#") else ""
-        return f'''<article class="carte"{ancre} data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
+        return f'''<article class="carte"{ancre} data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}" data-rubrique="{e(RUBRIQUE_DU_THEME.get(a["theme"], ""))}" data-sujets="{e("|".join(a.get("sujets", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
       <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
@@ -597,7 +691,7 @@ def generer_page(articles, etat_sources):
         for a in articles[:30]
     )
     liste_sources = "".join(
-        f'<li data-theme="{e(s.get("theme", ""))}"><button class="filtre-source" data-source="{e(s["nom"])}">{e(s["nom"])}</button>'
+        f'<li data-theme="{e(s.get("theme", ""))}" data-rubrique="{e(RUBRIQUE_DU_THEME.get(s.get("theme", ""), ""))}"><button class="filtre-source" data-source="{e(s["nom"])}">{e(s["nom"])}</button>'
         f'<span class="{"ok" if not err else "ko"}" title="{e(err or "")}">{n if not err else "hors ligne"}</span></li>'
         for s, n, err in etat_sources
     )
@@ -617,12 +711,22 @@ def generer_page(articles, etat_sources):
     for a in articles:
         nb_langue[a.get("langue", "fr")] = nb_langue.get(a.get("langue", "fr"), 0) + 1
     langues_presentes = {l for l, n in nb_langue.items() if n >= 5}  # pas d'onglet pour 1 ou 2 articles
-    boutons_langues = "".join(f'<button class="langue" data-langue="{l}">{nom}</button>'
+    NOMS_LONGS = {"fr": "Français", "en": "English", "nl": "Nederlands", "es": "Español", "it": "Italiano"}
+    options_langues = "".join(f'<option value="{l}">{NOMS_LONGS.get(l, nom)}</option>'
                               for l, nom in NOMS_LANGUE.items() if l in langues_presentes)
-    onglets = "".join(f'<button class="onglet" data-region="{r}">{r}</button>' for r in REGIONS)
+    options_regions = "".join(f'<option value="{e(r)}">{e(r)}</option>' for r in REGIONS)
+    onglets = "".join(f'<button class="onglet" data-rubrique="{e(r)}">{e(r)}</button>' for r in RUBRIQUES)
+    # sous-chapitres : seuls ceux de l'onglet choisi sont visibles (et seulement s'ils ont des articles)
+    nb_sujet = {}
+    for a in articles:
+        for s in a.get("sujets", []):
+            nb_sujet[s] = nb_sujet.get(s, 0) + 1
+    sous_chapitres = "".join(
+        f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="" hidden>Tout</button>'
+        + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden>{e(s)}</button>'
+                  for s in d["sujets"] if nb_sujet.get(s))
+        for r, d in RUBRIQUES.items())
     themes_dossiers = [t for t in themes if t.startswith("Dossier")]
-    boutons_themes = "".join(f'<button class="filtre-theme" data-theme="{e(t)}">{e(t)}</button>'
-                             for t in themes if t not in themes_dossiers)
     boutons_dossiers = "".join(
         f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}">📂 {e(t.removeprefix("Dossier ").capitalize())}</button>'
         for t in themes_dossiers)
@@ -647,10 +751,15 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .onglets{{background:var(--nuit);display:flex;justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:4px 16px;padding:0 16px;border-top:1px solid #333}}
 .onglets .regions{{display:flex;flex-wrap:nowrap;gap:2px;overflow-x:auto;scrollbar-width:thin;min-width:0;flex:1 1 0}}
 .onglets .regions>*{{flex:none}}
-.langues{{display:flex;gap:4px;padding:6px 0}}
-.langue{{font:700 13px system-ui,sans-serif;color:#cfc8bb;background:none;border:1px solid #555;border-radius:20px;padding:4px 11px;cursor:pointer}}
-.langue:hover{{color:#fff;border-color:#999}}
-.langue.actif{{background:#b3261e;border-color:#b3261e;color:#fff}}
+.choix{{display:flex;gap:6px;padding:6px 0;flex:none}}
+.choix select{{font:600 13px system-ui,sans-serif;color:#ece7dd;background:#211f19;border:1px solid #555;border-radius:20px;padding:5px 10px;cursor:pointer;max-width:170px}}
+.choix select:hover{{border-color:#999}}
+.choix select.actif{{background:#b3261e;border-color:#b3261e;color:#fff}}
+.barre .sujet{{font-size:14px}}
+.barre .sujet[data-sujet=""]{{font-weight:700}}
+.plus{{display:block;margin:18px auto 0;font:600 15px system-ui,sans-serif;cursor:pointer;border:1px solid var(--accent);background:var(--carte);color:var(--accent);border-radius:24px;padding:10px 26px}}
+.plus:hover{{background:var(--accent);color:#fff}}
+@media (max-width:700px){{.onglets{{flex-wrap:wrap;padding:0 8px}}.onglets .regions{{flex:1 1 100%}}.choix{{width:100%;justify-content:center;padding:0 0 8px}}.choix select{{flex:1;max-width:none}}.onglet{{padding:12px 10px}}}}
 .panneau-dossiers{{background:#211f19;display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;justify-content:center;border-top:1px solid #333}}
 .panneau-dossiers button,.liste-dossiers button{{font:600 14px system-ui,sans-serif;cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid var(--accent);background:var(--carte);color:var(--texte)}}
 .panneau-dossiers button.actif,.liste-dossiers button.actif{{background:var(--accent);color:#fff}}
@@ -779,13 +888,14 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
 <p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
-<nav class="onglets"><div class="regions"><button class="onglet actif" data-region="">À la une</button>{onglets}
+<nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="">À la une</button>{onglets}
   <button class="onglet" id="ouvrir-dossiers" aria-expanded="false">📂 Dossiers ▾</button></div>
-  <div class="langues" role="group" aria-label="Langue"><button class="langue actif" data-langue="">Toutes</button>{boutons_langues}</div></nav>
+  <div class="choix"><select id="choix-region" aria-label="Région"><option value="">🌍 Toutes les régions</option>{options_regions}</select>
+  <select id="choix-langue" aria-label="Langue"><option value="">🗣 Toutes les langues</option>{options_langues}</select></div></nav>
 <div class="panneau-dossiers" id="panneau-dossiers" hidden>{boutons_dossiers}<a href="#bloc-dossiers" class="dossier-lien">Dossiers documentés (faits et sources) ↓</a></div>
 <div class="barre">
   <form class="recherche" id="form-recherche" role="search"><input id="recherche" type="search" enterkeyhint="search" placeholder="Rechercher un mot, un sujet…"><button type="submit" aria-label="Rechercher">🔍</button></form>
-  <button class="filtre-theme actif" data-theme="">Tout</button>{boutons_themes}
+  {sous_chapitres}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
@@ -803,7 +913,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <section class="dossiers" id="bloc-dossiers"{" hidden" if not dossiers else ""}><h2>Dossiers documentés · les faits et leurs sources</h2><div class="grille-dossiers">{bloc_dossiers}</div></section>
 <main>
   <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
-  <p class="vide" id="vide" hidden>Aucun article ne correspond.</p></section>
+  <p class="vide" id="vide" hidden>Aucun article ne correspond.</p><button class="plus" id="plus" hidden>Voir plus</button></section>
   <aside>
     <div class="bloc bloc-dossiers"><h2>Nos dossiers</h2><div class="liste-dossiers">{boutons_dossiers}</div></div>
     <div class="bloc"><h2>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
@@ -817,9 +927,12 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 const cartes=[...document.querySelectorAll('#fil .carte')];
 const jours=[...document.querySelectorAll('#fil .jour')];
 const etoiles=document.querySelectorAll('.etoile');
-let theme='',source='',selection=false,region='';
+let theme='',source='',selection=false,region='',rubrique='',sujet='';
+const PAGE=40;let limite=PAGE; /* nombre d'articles affichés avant « Voir plus » */
+const choixLangue=document.getElementById('choix-langue'),choixRegion=document.getElementById('choix-region');
 let langue='';try{{langue=localStorage.getItem('centrale-langue')||''}}catch(e){{}}
-document.querySelectorAll('.langue').forEach(b=>b.classList.toggle('actif',b.dataset.langue===langue));
+if(![...choixLangue.options].some(o=>o.value===langue))langue='';
+choixLangue.value=langue;choixLangue.classList.toggle('actif',!!langue);
 let favoris=new Set();
 try{{favoris=new Set(JSON.parse(localStorage.getItem('centrale-favoris')||'[]'))}}catch(e){{}}
 function sauver(){{try{{localStorage.setItem('centrale-favoris',JSON.stringify([...favoris]))}}catch(e){{}}}}
@@ -867,58 +980,70 @@ const VITESSE_BANDEAU=25; // pixels par seconde
 function vitesseBandeau(){{const p=document.querySelector('.piste');if(p)p.style.animationDuration=Math.max(30,p.scrollWidth/2/VITESSE_BANDEAU)+'s'}}
 majLangueHaut();
 
-function filtrer(){{
+function filtrer(plus){{
+  if(plus!==true)limite=PAGE;
   const q=document.getElementById('recherche').value.toLowerCase().trim();
   let n=0;
   cartes.forEach(c=>{{
     const ok=(!langue||c.dataset.langue===langue)&&(!region||c.dataset.regions.split('|').includes(region))&&(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
+      &&(!rubrique||!!sujet||c.dataset.rubrique===rubrique)&&(!sujet||c.dataset.sujets.split('|').includes(sujet))
       &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q));
-    c.hidden=!ok;if(ok)n++;
+    if(ok)n++;c.hidden=!ok||n>limite;
   }});
+  const bPlus=document.getElementById('plus');bPlus.hidden=n<=limite;
+  bPlus.textContent=`Voir plus d'articles (${{n-limite}} restants)`;
+  document.querySelectorAll('.sujet').forEach(b=>{{b.hidden=b.dataset.rubrique!==rubrique;b.classList.toggle('actif',!b.hidden&&b.dataset.sujet===sujet)}});
   jours.forEach(j=>{{let el=j.nextElementSibling,vu=false;
     while(el&&!el.classList.contains('jour')){{if(!el.hidden){{vu=true;break}}el=el.nextElementSibling}}j.hidden=!vu}});
   document.getElementById('vide').hidden=n>0;
   // la liste des sources ne montre que celles de la rubrique choisie
-  document.querySelectorAll('.sources li').forEach(li=>li.hidden=!!theme&&li.dataset.theme!==theme);
-  const filtre=!!(region||theme||source||selection||q);
+  document.querySelectorAll('.sources li').forEach(li=>li.hidden=(!!theme&&li.dataset.theme!==theme)||(!!rubrique&&!sujet&&li.dataset.rubrique!==rubrique));
+  const filtre=!!(region||theme||source||selection||q||rubrique);
   document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;
   if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
   if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;filtre?pause():lancer();
-  const titre=[region,selection?'Ma sélection':source||theme].filter(Boolean).join(' · ');
+  const titre=[rubrique,sujet,region,selection?'Ma sélection':source||(theme&&theme.replace(/^Dossier /,'Dossier : '))].filter(Boolean).join(' · ');
   document.getElementById('titre-fil').textContent=q?`${{n}} résultat${{n>1?'s':''}} pour « ${{q}} »`+(titre?' · '+titre:''):titre||'Toutes les publications';
 }}
+/* onglets principaux : un seul actif à la fois */
+function activerOnglet(r){{rubrique=r;sujet='';
+  document.querySelectorAll('.onglet[data-rubrique]').forEach(x=>x.classList.toggle('actif',x.dataset.rubrique===r&&!theme));
+  document.getElementById('ouvrir-dossiers').classList.toggle('actif',!!theme)}}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{
-  theme=b.dataset.theme;source='';selection=false;
-  document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===b));
-  if(!b.classList.contains('dossier-btn'))document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.remove('actif'));filtrer()}});
+  theme=b.dataset.theme;source='';selection=false;activerOnglet('');
+  document.getElementById('ma-selection').classList.remove('actif');filtrer()}});
 document.querySelectorAll('.filtre-source').forEach(b=>b.onclick=()=>{{
-  source=b.dataset.source;theme='';selection=false;
-  document.querySelectorAll('.barre button').forEach(x=>x.classList.remove('actif'));filtrer();scrollTo({{top:0,behavior:'smooth'}})}});
+  source=b.dataset.source;theme='';selection=false;activerOnglet('');
+  document.querySelectorAll('.barre button,.dossier-btn').forEach(x=>x.classList.remove('actif'));filtrer();scrollTo({{top:0,behavior:'smooth'}})}});
 document.getElementById('ma-selection').onclick=e=>{{
-  selection=!selection;theme='';source='';
-  document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x===e.target&&selection));filtrer()}};
+  selection=!selection;theme='';source='';activerOnglet('');
+  document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.remove('actif'));
+  e.currentTarget.classList.toggle('actif',selection);filtrer()}};
+document.querySelectorAll('.sujet').forEach(b=>b.onclick=()=>{{sujet=b.dataset.sujet;filtrer()}});
+document.getElementById('plus').onclick=()=>{{limite+=PAGE;filtrer(true)}};
 document.getElementById('recherche').oninput=filtrer;
 document.getElementById('form-recherche').onsubmit=ev=>{{ev.preventDefault();filtrer();
   document.getElementById('recherche').blur();document.getElementById('titre-fil').scrollIntoView({{behavior:'smooth'}})}};
 /* clic sur « La Centrale » : retour à la page d'accueil, tous les filtres effacés */
 document.getElementById('accueil').onclick=ev=>{{ev.preventDefault();
   region='';theme='';source='';selection=false;document.getElementById('recherche').value='';
-  document.querySelectorAll('.onglet[data-region]').forEach(x=>x.classList.toggle('actif',!x.dataset.region));
-  document.querySelectorAll('.barre button').forEach(x=>x.classList.toggle('actif',x.dataset.theme===''));
-  document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.remove('actif'));
+  choixRegion.value='';choixRegion.classList.remove('actif');activerOnglet('');
+  document.querySelectorAll('.barre button,.dossier-btn').forEach(x=>x.classList.remove('actif'));
   document.getElementById('panneau-dossiers').hidden=true;filtrer();scrollTo({{top:0,behavior:'smooth'}})}};
-document.querySelectorAll('.langue').forEach(b=>b.onclick=()=>{{langue=b.dataset.langue;try{{localStorage.setItem('centrale-langue',langue)}}catch(x){{}}
-  document.querySelectorAll('.langue').forEach(x=>x.classList.toggle('actif',x===b));majLangueHaut();filtrer()}});
+choixLangue.onchange=()=>{{langue=choixLangue.value;try{{localStorage.setItem('centrale-langue',langue)}}catch(x){{}}
+  choixLangue.classList.toggle('actif',!!langue);majLangueHaut();filtrer()}};
+choixRegion.onchange=()=>{{region=choixRegion.value;choixRegion.classList.toggle('actif',!!region);filtrer()}};
 const panneau=document.getElementById('panneau-dossiers'),boutonDossiers=document.getElementById('ouvrir-dossiers');
 boutonDossiers.onclick=()=>{{panneau.hidden=!panneau.hidden;boutonDossiers.setAttribute('aria-expanded',!panneau.hidden)}};
 document.querySelectorAll('.dossier-btn').forEach(b=>b.addEventListener('click',()=>{{
   document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.toggle('actif',x.dataset.theme===b.dataset.theme));
   panneau.hidden=true;document.getElementById('titre-fil').scrollIntoView({{behavior:'smooth'}})}}));
 document.querySelector('.dossier-lien').onclick=()=>{{panneau.hidden=true}};
-document.querySelectorAll('.onglet[data-region]').forEach(b=>b.onclick=()=>{{region=b.dataset.region;
-  document.querySelectorAll('.onglet[data-region]').forEach(x=>x.classList.toggle('actif',x===b));filtrer()}});
+document.querySelectorAll('.onglet[data-rubrique]').forEach(b=>b.onclick=()=>{{theme='';source='';selection=false;
+  document.querySelectorAll('.barre button,.dossier-btn').forEach(x=>x.classList.remove('actif'));
+  panneau.hidden=true;activerOnglet(b.dataset.rubrique);filtrer()}});
 etoiles.forEach(b=>b.onclick=()=>{{const l=b.closest('.carte').dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
-majEtoiles();
+majEtoiles();filtrer();
 const haut=document.getElementById('remonter');
 addEventListener('scroll',()=>haut.hidden=scrollY<800,{{passive:true}});haut.onclick=()=>scrollTo({{top:0,behavior:'smooth'}});
 </script>
@@ -966,6 +1091,7 @@ def construire(articles, etat):
         if a["date"] and a["date"] > maintenant:  # date d'un événement à venir, pas de publication
             a["date"] = None
         a["regions"] = regions_de(a)
+        a["sujets"] = sujets_de(a)
         a["langue"] = langue_de(a)
 
     # tri du plus récent au plus ancien (les articles sans date vont à la fin)
