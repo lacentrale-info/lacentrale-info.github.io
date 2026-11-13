@@ -25,7 +25,7 @@
   {"nom": "Nexus", "flux": "https://www.nexus.fr/feed/", "theme": "Société"},
   {"nom": "Pierre Chaillot (Décoder l'éco)", "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UCX6iYvJWGOQfGsFo2KSSm-w", "theme": "Santé & Autonomie"},
   {"nom": "BonSens.org", "flux": "https://bonsens.info/feed/", "theme": "Santé & Autonomie"},
-  {"nom": "L'ArchiPelle", "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UCOc43VE8KbZbwMX7fikucyw", "theme": "Santé & Autonomie"},
+  {"nom": "L'ArchiPelle", "flux": "https://www.youtube.com/feeds/videos.xml?channel_id=UCOc43VE8KbZbwMX7fikucyw", "theme": "Autonomie"},
   {"nom": "MAPS", "flux": "https://maps.org/feed/", "theme": "Psychédéliques"},
   {"nom": "Psychedelic Science Review", "flux": "https://psychedelicreview.com/feed/", "theme": "Psychédéliques"},
   {"nom": "Psychedelic Alpha", "flux": "https://psychedelicalpha.com/feed", "theme": "Psychédéliques"},

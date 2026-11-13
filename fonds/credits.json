@@ -1,0 +1,122 @@
+{
+ "carte.jpg": {
+  "nom": "carte du monde de H. Hondius (1641)",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "arnica.jpg": {
+  "nom": "arnica, Köhler's Medizinal-Pflanzen (1887)",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "camomille.jpg": {
+  "nom": "camomille, Köhler's Medizinal-Pflanzen (1887)",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "sankara.jpg": {
+  "nom": "Thomas Sankara",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "lumumba.jpg": {
+  "nom": "Patrice Lumumba à Bruxelles (Nationaal Archief)",
+  "licence": "CC0",
+  "auteur": ""
+ },
+ "moulin.jpg": {
+  "nom": "moulin de Minorque",
+  "licence": "CC0",
+  "auteur": ""
+ },
+ "earthship.jpg": {
+  "nom": "Earthship de Schloss Tempelhof",
+  "licence": "CC0",
+  "auteur": ""
+ },
+ "degaulle.jpg": {
+  "nom": "Charles de Gaulle (Nationaal Archief)",
+  "licence": "CC0",
+  "auteur": ""
+ },
+ "mandela.jpg": {
+  "nom": "Nelson Mandela (1994)",
+  "licence": "CC BY-SA 2.0",
+  "auteur": "Kingkongphoto & www.celebrity-photos.com"
+ },
+ "gandhi.jpg": {
+  "nom": "Gandhi (1931)",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "bolivar.jpg": {
+  "nom": "Simón Bolívar par A. Michelena",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "kennedy.jpg": {
+  "nom": "J. F. Kennedy par A. Shikler",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "grand-port.jpg": {
+  "nom": "port de Tacoma",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "petit-port.jpg": {
+  "nom": "chantier naval de Cancale",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "bateaux-peche.jpg": {
+  "nom": "port d'Érétrie",
+  "licence": "CC0",
+  "auteur": ""
+ },
+ "pecheur.jpg": {
+  "nom": "pêcheur par A. H. Thayer",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "agriculteur.jpg": {
+  "nom": "labour à cheval",
+  "licence": "CC BY-SA 2.5",
+  "auteur": "Ralf Roletschek"
+ },
+ "grande-ferme.jpg": {
+  "nom": "moissonneuse (1963)",
+  "licence": "CC BY 4.0",
+  "auteur": "Erkki Voutilainen"
+ },
+ "raffinerie.jpg": {
+  "nom": "raffinerie de Brofjorden",
+  "licence": "CC BY-SA 4.0",
+  "auteur": "W.carter"
+ },
+ "fleuve.jpg": {
+  "nom": "péniche sur le Rhin",
+  "licence": "CC BY-SA 4.0",
+  "auteur": "Partonez"
+ },
+ "canyon.jpg": {
+  "nom": "Grand Canyon",
+  "licence": "CC0",
+  "auteur": ""
+ },
+ "chantier.jpg": {
+  "nom": "barrage Hoover",
+  "licence": "CC BY-SA 4.0",
+  "auteur": "Dietmar Rabich"
+ },
+ "canal.jpg": {
+  "nom": "canal de Panama (1904)",
+  "licence": "domaine public",
+  "auteur": ""
+ },
+ "historique.jpg": {
+  "nom": "pont du Gard",
+  "licence": "CC BY-SA 3.0",
+  "auteur": "Benh LIEU SONG (Flickr)"
+ }
+}

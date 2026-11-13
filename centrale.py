@@ -340,15 +340,27 @@ RUBRIQUES = {
 }
 # Images de fond (dossier fonds/) : à gauche, à droite (grands écrans) et en plein fond pâle (écrans plus petits).
 # Toutes viennent de Wikimedia Commons, domaine public ou CC0 (crédits en bas de page).
-AMBIANCES = {
-    "": ("carte.jpg", "carte.jpg", "carte.jpg", "left center", "right center"),
-    "Géopolitique": ("sankara.jpg", "lumumba.jpg", "carte.jpg", "center 20%", "center 20%"),
-    "Santé": ("arnica.jpg", "camomille.jpg", "camomille.jpg", "center", "center"),
-    "Autonomie": ("moulin.jpg", "earthship.jpg", "earthship.jpg", "center", "center"),
+# Pour chaque rubrique, deux images sont tirées au hasard dans sa liste à chaque visite (une à gauche, une à droite).
+FONDS = {
+    "": {"images": ["carte.jpg"], "plein": "carte.jpg", "pos": ["left center", "right center"]},
+    "Géopolitique": {"images": ["sankara.jpg", "lumumba.jpg", "degaulle.jpg", "mandela.jpg", "gandhi.jpg",
+                                "bolivar.jpg", "nasser.jpg", "kennedy.jpg"], "plein": "carte.jpg"},
+    "Économie": {"images": ["grand-port.jpg", "petit-port.jpg", "bateaux-peche.jpg", "pecheur.jpg",
+                            "agriculteur.jpg", "grande-ferme.jpg", "raffinerie.jpg", "fleuve.jpg", "canyon.jpg",
+                            "chantier.jpg", "canal.jpg", "historique.jpg"]},
+    "Santé": {"images": ["arnica.jpg", "camomille.jpg"]},
+    "Autonomie": {"images": ["moulin.jpg", "earthship.jpg"]},
 }
-CREDITS_FONDS = ("Images de fond : Wikimedia Commons — carte du monde de Henricus Hondius (1641), planches de "
-                 "Köhler's Medizinal-Pflanzen (1887), Thomas Sankara (domaine public), Patrice Lumumba à Bruxelles "
-                 "(Nationaal Archief, CC0), moulin de Minorque (CC0), Earthship de Schloss Tempelhof (CC0).")
+# cadrage des portraits : le visage est en haut de l'image
+POSITIONS_FONDS = {"sankara.jpg": "center 20%", "lumumba.jpg": "center 20%"}
+def credits_fonds():
+    """Ligne de crédits des images de fond, à partir de fonds/credits.json."""
+    try:
+        c = json.loads((DOSSIER / "fonds" / "credits.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return ""
+    return "Images de fond (Wikimedia Commons) : " + " · ".join(
+        f'{v["nom"]} ({v["auteur"] + ", " if v.get("auteur") else ""}{v["licence"]})' for v in c.values()) + "."
 RUBRIQUE_DU_THEME = {t: r for r, d in RUBRIQUES.items() for t in d["themes"]}
 _MOTIFS_SUJETS = {}
 for _r in RUBRIQUES.values():
@@ -751,10 +763,9 @@ def generer_page(articles, etat_sources):
         + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden>{e(s)}</button>'
                   for s in d["sujets"] if nb_sujet.get(s))
         for r, d in RUBRIQUES.items())
-    css_ambiances = "".join(
-        (f'body[data-ambiance="{r}"]' if r else "body")
-        + f"{{--img-g:url(fonds/{g});--img-d:url(fonds/{d});--img-plein:url(fonds/{p});--pos-g:{pg};--pos-d:{pd}}}"
-        for r, (g, d, p, pg, pd) in AMBIANCES.items())
+    # seules les images réellement présentes dans fonds/ sont proposées
+    fonds_js = json.dumps({r: {**f, "images": [i for i in f["images"] if (DOSSIER / "fonds" / i).exists()]}
+                           for r, f in FONDS.items()}, ensure_ascii=False)
     themes_dossiers = [t for t in themes if t.startswith("Dossier")]
     boutons_dossiers = "".join(
         f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}">📂 {e(t.removeprefix("Dossier ").capitalize())}</button>'
@@ -928,7 +939,6 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 @media (min-width:1500px){{#fond::before{{opacity:0}}}}
 @media (max-width:1499px){{#fond .fg,#fond .fd{{display:none}}}}
 @media (prefers-color-scheme:dark){{#fond .fg,#fond .fd{{opacity:.32}}#fond::before{{opacity:.05}}}}
-{css_ambiances}
 .credits{{display:block;margin-top:6px;font-size:11px;opacity:.8}}
 </style></head><body><div id="fond" aria-hidden="true"><div class="fg"></div><div class="fd"></div></div>
 <header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
@@ -969,8 +979,18 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   </aside>
 </main>
 <button id="remonter" hidden aria-label="Remonter en haut">↑</button>
-<footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources<span class="credits">{e(CREDITS_FONDS)}</span></footer>
+<footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources<span class="credits">{e(credits_fonds())}</span></footer>
 <script>
+/* images de fond : deux images tirées au hasard dans la liste de la rubrique */
+const FONDS={fonds_js},POS_FONDS={json.dumps(POSITIONS_FONDS)};
+function majFond(r){{
+  const f=FONDS[r]&&FONDS[r].images.length?FONDS[r]:FONDS[''];
+  const im=[...f.images].sort(()=>Math.random()-.5),g=im[0],d=im[1]||im[0],s=document.getElementById('fond').style;
+  s.setProperty('--img-g',`url(fonds/${{g}})`);s.setProperty('--img-d',`url(fonds/${{d}})`);
+  s.setProperty('--img-plein',`url(fonds/${{f.plein||g}})`);
+  s.setProperty('--pos-g',(f.pos&&f.pos[0])||POS_FONDS[g]||'center');s.setProperty('--pos-d',(f.pos&&f.pos[1])||POS_FONDS[d]||'center');
+}}
+majFond('');
 const cartes=[...document.querySelectorAll('#fil .carte')];
 const jours=[...document.querySelectorAll('#fil .jour')];
 const etoiles=document.querySelectorAll('.etoile');
@@ -1087,7 +1107,7 @@ function filtrer(plus){{
   document.getElementById('titre-fil').textContent=q?`${{n}} résultat${{n>1?'s':''}} pour « ${{q}} »`+(titre?' · '+titre:''):titre||'Toutes les publications';
 }}
 /* onglets principaux : un seul actif à la fois */
-function activerOnglet(r){{rubrique=r;sujet='';document.body.dataset.ambiance=r;
+function activerOnglet(r){{if(r!==rubrique)majFond(r);rubrique=r;sujet='';
   document.querySelectorAll('.onglet[data-rubrique]').forEach(x=>x.classList.toggle('actif',x.dataset.rubrique===r&&!theme));
   document.getElementById('ouvrir-dossiers').classList.toggle('actif',!!theme)}}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{
