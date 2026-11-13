@@ -323,7 +323,32 @@ RUBRIQUES = {
                                  "hospital*", "cancer*"],
         },
     },
+    "Autonomie": {
+        "themes": ["Autonomie"],
+        "sujets": {
+            "Low-tech": ["low-tech", "lowtech", "low tech", "bricol*", "fabriquer", "fabrication", "autoconstruction",
+                         "réparer", "réparation*", "tutoriel*", "outil*", "convivial*"],
+            "Énergie": ["solaire*", "photovolta*", "éolien*", "géotherm*", "biogaz", "poêle*", "chauffage",
+                        "chauffer", "hydroélectri*", "batterie*", "énergie*", "pompe*"],
+            "Habitat & serres": ["serre*", "habitat*", "habiter", "maison*", "paille", "terre crue", "earthship",
+                                 "isolation", "bioclimati*", "yourte*", "tiny house", "écolieu*", "écovillage*"],
+            "Jardin & permaculture": ["permacultur*", "jardin*", "potager*", "semence*", "semer", "compost*",
+                                      "agroécolog*", "maraîch*", "verger*", "forêt-jardin", "haie*", "champignon*"],
+            "Eau": ["eau", "pluie", "toilettes sèches", "phytoépuration", "puits", "irrigation", "arrosage"],
+        },
+    },
 }
+# Images de fond (dossier fonds/) : à gauche, à droite (grands écrans) et en plein fond pâle (écrans plus petits).
+# Toutes viennent de Wikimedia Commons, domaine public ou CC0 (crédits en bas de page).
+AMBIANCES = {
+    "": ("carte.jpg", "carte.jpg", "carte.jpg", "left center", "right center"),
+    "Géopolitique": ("sankara.jpg", "lumumba.jpg", "carte.jpg", "center 20%", "center 20%"),
+    "Santé": ("arnica.jpg", "camomille.jpg", "camomille.jpg", "center", "center"),
+    "Autonomie": ("moulin.jpg", "earthship.jpg", "earthship.jpg", "center", "center"),
+}
+CREDITS_FONDS = ("Images de fond : Wikimedia Commons — carte du monde de Henricus Hondius (1641), planches de "
+                 "Köhler's Medizinal-Pflanzen (1887), Thomas Sankara (domaine public), Patrice Lumumba à Bruxelles "
+                 "(Nationaal Archief, CC0), moulin de Minorque (CC0), Earthship de Schloss Tempelhof (CC0).")
 RUBRIQUE_DU_THEME = {t: r for r, d in RUBRIQUES.items() for t in d["themes"]}
 _MOTIFS_SUJETS = {}
 for _r in RUBRIQUES.values():
@@ -726,6 +751,10 @@ def generer_page(articles, etat_sources):
         + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden>{e(s)}</button>'
                   for s in d["sujets"] if nb_sujet.get(s))
         for r, d in RUBRIQUES.items())
+    css_ambiances = "".join(
+        (f'body[data-ambiance="{r}"]' if r else "body")
+        + f"{{--img-g:url(fonds/{g});--img-d:url(fonds/{d});--img-plein:url(fonds/{p});--pos-g:{pg};--pos-d:{pd}}}"
+        for r, (g, d, p, pg, pd) in AMBIANCES.items())
     themes_dossiers = [t for t in themes if t.startswith("Dossier")]
     boutons_dossiers = "".join(
         f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}">📂 {e(t.removeprefix("Dossier ").capitalize())}</button>'
@@ -891,7 +920,17 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 .admin .carte{{min-height:160px}}
 .actions .btn-retirer{{border-color:var(--accent);color:var(--accent);font-size:13px}}
 .actions .btn-retirer:hover{{background:var(--accent);color:#fff}}
-</style></head><body>
+#fond{{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}}
+#fond::before{{content:"";position:absolute;inset:0;background:var(--img-plein) center/cover no-repeat;opacity:.07}}
+#fond .fg,#fond .fd{{position:absolute;top:0;bottom:0;width:calc((100vw - 1240px)/2);background-repeat:no-repeat;background-size:cover;opacity:.6}}
+#fond .fg{{left:0;background-image:var(--img-g);background-position:var(--pos-g);-webkit-mask-image:linear-gradient(to right,#000 45%,transparent);mask-image:linear-gradient(to right,#000 45%,transparent)}}
+#fond .fd{{right:0;background-image:var(--img-d);background-position:var(--pos-d);-webkit-mask-image:linear-gradient(to left,#000 45%,transparent);mask-image:linear-gradient(to left,#000 45%,transparent)}}
+@media (min-width:1500px){{#fond::before{{opacity:0}}}}
+@media (max-width:1499px){{#fond .fg,#fond .fd{{display:none}}}}
+@media (prefers-color-scheme:dark){{#fond .fg,#fond .fd{{opacity:.32}}#fond::before{{opacity:.05}}}}
+{css_ambiances}
+.credits{{display:block;margin-top:6px;font-size:11px;opacity:.8}}
+</style></head><body><div id="fond" aria-hidden="true"><div class="fg"></div><div class="fd"></div></div>
 <header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
 <p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
@@ -930,7 +969,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   </aside>
 </main>
 <button id="remonter" hidden aria-label="Remonter en haut">↑</button>
-<footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources</footer>
+<footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources<span class="credits">{e(CREDITS_FONDS)}</span></footer>
 <script>
 const cartes=[...document.querySelectorAll('#fil .carte')];
 const jours=[...document.querySelectorAll('#fil .jour')];
@@ -1048,7 +1087,7 @@ function filtrer(plus){{
   document.getElementById('titre-fil').textContent=q?`${{n}} résultat${{n>1?'s':''}} pour « ${{q}} »`+(titre?' · '+titre:''):titre||'Toutes les publications';
 }}
 /* onglets principaux : un seul actif à la fois */
-function activerOnglet(r){{rubrique=r;sujet='';
+function activerOnglet(r){{rubrique=r;sujet='';document.body.dataset.ambiance=r;
   document.querySelectorAll('.onglet[data-rubrique]').forEach(x=>x.classList.toggle('actif',x.dataset.rubrique===r&&!theme));
   document.getElementById('ouvrir-dossiers').classList.toggle('actif',!!theme)}}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{

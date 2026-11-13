@@ -58,5 +58,9 @@
   {"nom": "Ingérences étrangères en France (presse)", "flux": "https://news.google.com/rss/search?q=ing%C3%A9rence+%C3%A9trang%C3%A8re+France+renseignement&hl=fr&gl=FR&ceid=FR:fr", "theme": "Dossier ingérences"},
   {"nom": "INSEE (chiffres officiels)", "flux": "https://www.insee.fr/fr/flux/1", "theme": "Faits & Documents"},
   {"nom": "Acrimed", "flux": "https://www.acrimed.org/spip.php?page=backend", "theme": "Médias"},
-  {"nom": "Arrêt sur images", "flux": "https://api.arretsurimages.net/api/public/rss/all-content", "theme": "Médias"}
+  {"nom": "Arrêt sur images", "flux": "https://api.arretsurimages.net/api/public/rss/all-content", "theme": "Médias"},
+  {"nom": "Low-tech Lab", "flux": "https://www.lowtechlab.org/feed", "theme": "Autonomie"},
+  {"nom": "Permaculture Design", "flux": "https://permaculturedesign.fr/feed/", "theme": "Autonomie"},
+  {"nom": "Kaizen Magazine", "flux": "https://www.kaizen-magazine.com/feed/", "theme": "Autonomie"},
+  {"nom": "L'Atelier Paysan", "flux": "https://www.latelierpaysan.org/spip.php?page=backend", "theme": "Autonomie"}
 ]

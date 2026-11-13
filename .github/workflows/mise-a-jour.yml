@@ -52,6 +52,7 @@ jobs:
           mkdir -p _site
           cp index.html _site/
           cp -r studio _site/
+          cp -r fonds _site/
           if [ -d documents ]; then cp -r documents _site/; fi
           touch _site/.nojekyll
 
