@@ -272,7 +272,7 @@ def creer_publication(champs, chemin=None):
         "titre": (champs.get("titre") or "").strip() or infos.get("titre") or lignes[0][:150]
                  or (chemin.stem.replace("_", " ") if chemin else "Publication"),
         "resume": infos.get("resume") or (texte if champs.get("titre") else reste) or
-                  (f"📄 Document : {chemin.name}" if chemin else ""),
+                  (f"📄 Document : {chemin.name}" if chemin and not champs.get("rubrique") else ""),
         "image": infos.get("image", ""),
         "site": (champs.get("source") or "").strip() or infos.get("site") or "La Centrale",
         "lien": lien,
@@ -281,6 +281,10 @@ def creer_publication(champs, chemin=None):
         "publie": False,
         "via": "studio",
     }
+    if champs.get("rubrique"):  # ex. « Humour » : la publication va dans cet onglet
+        env["theme"] = champs["rubrique"]
+    if chemin and not env["image"] and chemin.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+        env["image"] = f"documents/{urllib.parse.quote(chemin.name)}"  # une image publiée sert aussi de vignette
 
     message = "Ajouté à La Centrale."
     c = lire_config()
@@ -366,5 +370,5 @@ def en_articles(envois):
         "resume": (f"💬 {x['commentaire']} — " if x.get("commentaire") else "")
                   + ((x.get("resume") or "") if x["lien"].startswith("#") else (x.get("resume") or "")[:260]),
         "image": x.get("image", ""), "date": datetime.fromisoformat(x["date"]),
-        "source": x.get("site") or "La Centrale", "theme": "Nos publications", "perso": True,
+        "source": x.get("site") or "La Centrale", "theme": x.get("theme") or "Nos publications", "perso": True,
     } for x in envois]

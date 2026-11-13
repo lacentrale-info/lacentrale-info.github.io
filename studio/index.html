@@ -44,6 +44,12 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
 .etapes{background:var(--carte);border:1px solid var(--ligne);border-radius:12px;padding:6px 18px 16px}
 .etapes li{margin:8px 0}
 .etapes code{background:var(--fond);padding:1px 6px;border-radius:4px}
+#satire{margin-top:26px}
+.titre-satire{font:700 16px system-ui,sans-serif;color:var(--texte);background:var(--carte);border:1px solid var(--ligne);border-radius:10px;padding:12px 14px}
+#satire[open] .titre-satire{border-radius:10px 10px 0 0}
+#satire .etapes{border-radius:0 0 12px 12px;border-top:0}
+.aide{font-size:14px;color:var(--doux)}
+#sat-canvas{display:block;width:100%;margin-top:14px;border-radius:10px;touch-action:none;cursor:grab;background:#000}
 [hidden]{display:none!important}
 </style></head><body>
 <header><h1>Le <span>Studio</span></h1>
@@ -84,6 +90,23 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
   <button id="publier" type="submit">Publier</button>
   <div class="message" id="message" hidden></div>
 </form>
+<details id="satire"><summary class="titre-satire">😏 Créer une image satirique (photo + bulle)</summary>
+<div class="etapes">
+  <p class="aide">1. Choisissez une photo : la vôtre, ou une photo libre de droits sur <a href="https://commons.wikimedia.org" target="_blank">Wikimedia Commons</a> (les photos de presse sont protégées par le droit d'auteur).<br>
+  2. Écrivez la bulle. 3. <b>Touchez la bouche</b> de la personne : la pointe de la bulle y va. <b>Glissez la bulle</b> pour la déplacer.<br>
+  Le bandeau « SATIRE · La Centrale » est toujours ajouté : personne ne peut prendre la bulle pour une vraie citation.</p>
+  <label class="fichier" for="sat-photo">🖼 <span id="sat-nom">Choisir la photo…</span><input id="sat-photo" type="file" accept="image/*"></label>
+  <label for="sat-bulle">Texte de la bulle</label>
+  <textarea id="sat-bulle" style="min-height:70px" placeholder="Serrez-vous la ceinture ! Moi, j'augmente encore mon salaire."></textarea>
+  <label for="sat-legende">Légende sous l'image (facultatif)</label>
+  <input id="sat-legende" type="text" placeholder="Bruxelles, novembre 2026">
+  <label for="sat-titre">Titre de la publication</label>
+  <input id="sat-titre" type="text" placeholder="La ceinture, c'est pour les autres">
+  <canvas id="sat-canvas" hidden></canvas>
+  <label class="case"><input type="checkbox" id="sat-telegram" checked> Publier aussi sur le canal Telegram (s'il est configuré)</label>
+  <button id="sat-publier" type="button" style="width:100%">Publier dans « Humour »</button>
+  <div class="message" id="sat-message" hidden></div>
+</div></details>
 <h2>Mes publications</h2>
 <div id="liste"><p style="color:var(--doux)">Chargement…</p></div>
 <h2>Articles retirés du site</h2>
@@ -196,6 +219,67 @@ async function chargerRetires(){
         b.textContent='Remis (2-5 min)'}catch(e){b.disabled=false;b.textContent='Échec'}});
   }catch(e){$('retires').innerHTML='<p class="message erreur">⚠️ '+esc(e.message)+'</p>'}
 }
+/* image satirique : photo + bulle + bandeau « SATIRE » */
+const sat={img:null,bx:.5,by:.16,tx:.5,ty:.45,drag:null,exporter:false};
+const cv=$('sat-canvas'),cx=cv.getContext('2d');
+const borne=(v,a,b)=>Math.max(a,Math.min(b,v));
+$('sat-photo').onchange=()=>{const f=$('sat-photo').files[0];if(!f)return;$('sat-nom').textContent=f.name;
+  const im=new Image();im.onload=()=>{sat.img=im;const W=Math.min(1200,im.naturalWidth);cv.width=W;
+    sat.ih=Math.round(im.naturalHeight*W/im.naturalWidth);sat.bande=Math.max(40,Math.round(W*.065));cv.height=sat.ih+sat.bande;cv.hidden=false;dessiner()};
+  im.src=URL.createObjectURL(f)};
+['sat-bulle','sat-legende'].forEach(id=>$(id).addEventListener('input',dessiner));
+function couper(t,maxW){const out=[];t.split('\n').forEach(par=>{let l='';par.split(/\s+/).forEach(m=>{const e=l?l+' '+m:m;
+  if(cx.measureText(e).width>maxW&&l){out.push(l);l=m}else l=e});out.push(l)});return out}
+function dessiner(){
+  if(!sat.img)return;const W=cv.width,H=sat.ih;
+  cx.drawImage(sat.img,0,0,W,H);
+  /* bandeau du bas, toujours présent */
+  const B=sat.bande,fs=Math.round(B*.42);cx.fillStyle='#16150f';cx.fillRect(0,H,W,B);cx.textBaseline='middle';
+  cx.font=`700 ${fs}px Georgia,serif`;cx.fillStyle='#ff6b5e';cx.fillText('SATIRE',W*.02,H+B/2);
+  const w1=cx.measureText('SATIRE').width;cx.textAlign='right';cx.fillStyle='#ece7dd';cx.fillText('LA CENTRALE',W*.98,H+B/2);
+  const w2=cx.measureText('LA CENTRALE').width;cx.textAlign='left';cx.font=`italic ${fs}px Georgia,serif`;
+  let leg=$('sat-legende').value.trim();const place=W*.96-w1-w2-fs*2;while(leg&&cx.measureText(leg).width>place)leg=leg.slice(0,-2)+'…';
+  cx.fillText(leg,W*.02+w1+fs,H+B/2);
+  /* bulle */
+  const t=$('sat-bulle').value.trim();sat.boite=null;
+  if(t){
+    const T=Math.max(18,Math.round(W/24));cx.font=`700 ${T}px "Comic Sans MS","Comic Neue","Chalkboard SE","Segoe Print",Arial,sans-serif`;
+    const L=couper(t,W*.44),lh=T*1.2,bw=Math.max(...L.map(l=>cx.measureText(l).width))+T*1.4,bh=L.length*lh+T*1.1;
+    const x=borne(sat.bx*W-bw/2,4,W-bw-4),y=borne(sat.by*H-bh/2,4,H-bh-4);sat.boite={x,y,w:bw,h:bh};
+    const mx=x+bw/2,my=y+bh/2,qx=sat.tx*W,qy=sat.ty*H,a=Math.atan2(qy-my,qx-mx)+Math.PI/2,base=Math.min(bw,bh)*.16;
+    const queue=()=>{cx.beginPath();cx.moveTo(mx+Math.cos(a)*base,my+Math.sin(a)*base);cx.lineTo(qx,qy);cx.lineTo(mx-Math.cos(a)*base,my-Math.sin(a)*base);cx.closePath()};
+    cx.fillStyle='#fff';cx.strokeStyle='#111';cx.lineWidth=Math.max(2,W/350);
+    queue();cx.fill();cx.stroke();
+    cx.beginPath();cx.roundRect(x,y,bw,bh,T*.9);cx.fill();cx.stroke();
+    queue();cx.fill(); /* raccord propre entre la bulle et sa pointe */
+    cx.fillStyle='#111';cx.textBaseline='top';L.forEach((l,i)=>cx.fillText(l,x+T*.7,y+T*.55+i*lh));
+  }
+  if(!sat.exporter){/* repère rouge de la bouche (n'apparaît pas sur l'image publiée) */
+    cx.beginPath();cx.arc(sat.tx*W,sat.ty*H,Math.max(7,W/90),0,7);cx.fillStyle='rgba(255,60,50,.85)';cx.fill();cx.lineWidth=2;cx.strokeStyle='#fff';cx.stroke()}
+}
+function pos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height}}
+cv.onpointerdown=e=>{const p=pos(e),b=sat.boite;cv.setPointerCapture(e.pointerId);
+  if(b&&p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h){sat.drag={dx:p.x-(b.x+b.w/2),dy:p.y-(b.y+b.h/2)}}
+  else{sat.drag='queue';sat.tx=borne(p.x/cv.width,0,1);sat.ty=borne(p.y/sat.ih,0,1);dessiner()}};
+cv.onpointermove=e=>{if(!sat.drag)return;const p=pos(e);
+  if(sat.drag==='queue'){sat.tx=borne(p.x/cv.width,0,1);sat.ty=borne(p.y/sat.ih,0,1)}
+  else{sat.bx=(p.x-sat.drag.dx)/cv.width;sat.by=(p.y-sat.drag.dy)/sat.ih}dessiner()};
+cv.onpointerup=cv.onpointercancel=()=>{sat.drag=null};
+$('sat-publier').onclick=async()=>{
+  const m=$('sat-message'),b=$('sat-publier');
+  if(!sat.img||!$('sat-bulle').value.trim()){m.className='message erreur';m.textContent='⚠️ Choisissez une photo et écrivez le texte de la bulle.';m.hidden=false;return}
+  b.disabled=true;b.textContent='Envoi…';
+  try{
+    sat.exporter=true;dessiner();const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',.88));sat.exporter=false;dessiner();
+    const h=horodatage(),doc='documents/'+h.slice(0,10)+'-satire-'+h.slice(11,19)+'.jpg';
+    await deposer(doc,await enBase64Fichier(blob),'Studio : image satirique');
+    const demande={type:'publication',texte:$('sat-legende').value.trim(),commentaire:'',source:'La Centrale',rubrique:'Humour',
+      titre:$('sat-titre').value.trim()||$('sat-bulle').value.trim().slice(0,90),telegram:$('sat-telegram').checked?'1':'0',document:doc,date:new Date().toISOString()};
+    await deposer('boite/'+h+'.json',enBase64Texte(JSON.stringify(demande,null,1)),'Studio : image satirique');
+    m.className='message';m.textContent='✅ Envoyé ! Visible dans l\'onglet « Humour » d\'ici 2 à 5 minutes.';charger();
+  }catch(err){sat.exporter=false;dessiner();m.className='message erreur';m.textContent='⚠️ '+err.message}
+  m.hidden=false;b.disabled=false;b.textContent='Publier dans « Humour »';
+};
 const p=new URLSearchParams(location.search);
 if(p.get('lien')||p.get('text')){$('texte').value=[p.get('text'),p.get('lien')].filter(Boolean).join(' ');majApercu()}
 afficher();

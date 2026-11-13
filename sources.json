@@ -62,5 +62,11 @@
   {"nom": "Low-tech Lab", "flux": "https://www.lowtechlab.org/feed", "theme": "Autonomie"},
   {"nom": "Permaculture Design", "flux": "https://permaculturedesign.fr/feed/", "theme": "Autonomie"},
   {"nom": "Kaizen Magazine", "flux": "https://www.kaizen-magazine.com/feed/", "theme": "Autonomie"},
-  {"nom": "L'Atelier Paysan", "flux": "https://www.latelierpaysan.org/spip.php?page=backend", "theme": "Autonomie"}
+  {"nom": "L'Atelier Paysan", "flux": "https://www.latelierpaysan.org/spip.php?page=backend", "theme": "Autonomie"},
+  {"nom": "Romuald Leterrier", "recherche_youtube": "Romuald Leterrier", "theme": "Chamanisme"},
+  {"nom": "Jocelin Morisson", "recherche_youtube": "Jocelin Morisson", "theme": "Chamanisme"},
+  {"nom": "Stéphane Allix", "recherche_youtube": "Stéphane Allix", "theme": "Chamanisme"},
+  {"nom": "INREES · Inexploré", "recherche_youtube": "INREES Inexploré", "theme": "Chamanisme"},
+  {"nom": "Corine Sombrun", "recherche_youtube": "Corine Sombrun chamanisme", "theme": "Chamanisme"},
+  {"nom": "Laurent Huguelit", "recherche_youtube": "Laurent Huguelit chamanisme", "theme": "Chamanisme"}
 ]

@@ -337,6 +337,23 @@ RUBRIQUES = {
             "Eau": ["eau", "pluie", "toilettes sèches", "phytoépuration", "puits", "irrigation", "arrosage"],
         },
     },
+    "Chamanisme": {
+        "themes": ["Chamanisme"],
+        "sujets": {
+            "Plantes sacrées": ["#Psychédéliques", "ayahuasca", "iboga*", "peyotl", "san pedro", "plante* maîtresse*",
+                                "plantes de pouvoir", "psilocyb*", "champignons magiques", "kambo"],
+            "Transe & conscience": ["transe*", "conscience*", "méditation*", "états modifiés", "état modifié",
+                                    "hypnose", "tambour*", "rêve*", "éveil"],
+            "Mort & au-delà": ["mort", "morts", "emi", "nde", "au-delà", "après-vie", "réincarnation", "défunt*",
+                               "esprits", "médium*"],
+            "Science & esprit": ["neuroscien*", "quantique*", "physique", "rétrocausalité", "science*", "cerveau*",
+                                 "matière", "synchronicit*"],
+            "Peuples & traditions": ["chaman*", "shaman*", "amazon*", "mongol*", "sibéri*", "amérindien*",
+                                     "autochtone*", "tradition*", "ancestra*", "rituel*"],
+        },
+    },
+    # vos dessins et photos à bulle, publiés depuis le Studio (« Créer une image satirique »)
+    "Humour": {"themes": ["Humour"], "sujets": {}},
 }
 # Images de fond (dossier fonds/) : à gauche, à droite (grands écrans) et en plein fond pâle (écrans plus petits).
 # Toutes viennent de Wikimedia Commons, domaine public ou CC0 (crédits en bas de page).
@@ -350,6 +367,9 @@ FONDS = {
                             "chantier.jpg", "canal.jpg", "historique.jpg"]},
     "Santé": {"images": ["arnica.jpg", "camomille.jpg"]},
     "Autonomie": {"images": ["moulin.jpg", "earthship.jpg"]},
+    "Chamanisme": {"images": ["masque-kamentsa.jpg", "chaman-mongol.jpg", "amazonie.jpg", "lascaux.jpg",
+                              "tambour-sami.jpg"]},
+    "Humour": {"images": ["gargantua.jpg", "ventre-legislatif.jpg", "les-poires.jpg"]},
 }
 # cadrage des portraits : le visage est en haut de l'image
 POSITIONS_FONDS = {"sankara.jpg": "center 20%", "lumumba.jpg": "center 20%"}
@@ -738,10 +758,11 @@ def generer_page(articles, etat_sources):
     except (FileNotFoundError, json.JSONDecodeError):
         dossiers = []
     bloc_dossiers = "".join(
-        f'''<article class="dossier"><h3>{e(d["titre"])}</h3>
+        # repliés : seul le titre est visible, un clic déplie les faits et les sources
+        f'''<details class="dossier"><summary><h3>{e(d["titre"])}</h3><span class="ouvrir">{len(d["liens"])} sources · lire ▾</span></summary>
   <p><span class="etiq etabli">Établi</span>{e(d["etabli"])}</p>
   <p><span class="etiq debattu">Débattu</span>{e(d["debattu"])}</p>
-  <ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></article>'''
+  <ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></details>'''
         for d in dossiers
     )
     nb_langue = {}
@@ -752,7 +773,10 @@ def generer_page(articles, etat_sources):
     options_langues = "".join(f'<option value="{l}">{NOMS_LONGS.get(l, nom)}</option>'
                               for l, nom in NOMS_LANGUE.items() if l in langues_presentes)
     options_regions = "".join(f'<option value="{e(r)}">{e(r)}</option>' for r in REGIONS)
-    onglets = "".join(f'<button class="onglet" data-rubrique="{e(r)}">{e(r)}</button>' for r in RUBRIQUES)
+    # un onglet sans aucun article (ex. Humour avant la première publication) reste caché
+    rubriques_pleines = {RUBRIQUE_DU_THEME.get(a["theme"]) for a in articles}
+    onglets = "".join(f'<button class="onglet" data-rubrique="{e(r)}">{e(r)}</button>'
+                      for r in RUBRIQUES if r in rubriques_pleines)
     # sous-chapitres : seuls ceux de l'onglet choisi sont visibles (et seulement s'ils ont des articles)
     nb_sujet = {}
     for a in articles:
@@ -762,7 +786,7 @@ def generer_page(articles, etat_sources):
         f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="" hidden>Tout</button>'
         + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden>{e(s)}</button>'
                   for s in d["sujets"] if nb_sujet.get(s))
-        for r, d in RUBRIQUES.items())
+        for r, d in RUBRIQUES.items() if d["sujets"])
     # seules les images réellement présentes dans fonds/ sont proposées
     fonds_js = json.dumps({r: {**f, "images": [i for i in f["images"] if (DOSSIER / "fonds" / i).exists()]}
                            for r, f in FONDS.items()}, ensure_ascii=False)
@@ -804,18 +828,24 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .plus:hover{{background:var(--accent);color:#fff}}
 @media (max-width:700px){{.onglets{{flex-wrap:wrap;padding:0 8px}}.onglets .regions{{flex:1 1 100%}}.choix{{width:100%;justify-content:center;padding:0 0 8px}}.choix select{{flex:1;max-width:none}}.onglet{{padding:12px 10px}}}}
 .panneau-dossiers{{background:#211f19;display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;justify-content:center;border-top:1px solid #333}}
-.panneau-dossiers button,.liste-dossiers button{{font:600 14px system-ui,sans-serif;cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid var(--accent);background:var(--carte);color:var(--texte)}}
+.panneau-dossiers button,.liste-dossiers button{{font:600 13px system-ui,sans-serif;cursor:pointer;border-radius:8px;padding:5px 10px;border:1px solid var(--accent);background:var(--carte);color:var(--texte)}}
 .panneau-dossiers button.actif,.liste-dossiers button.actif{{background:var(--accent);color:#fff}}
 .dossier-lien{{color:#ff8a7f;align-self:center;font-size:14px}}
-.liste-dossiers{{display:flex;flex-direction:column;gap:8px}}
+.liste-dossiers{{display:flex;flex-wrap:wrap;gap:6px}}
 .liste-dossiers button{{text-align:left}}
 .onglet{{font:700 14px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#cfc8bb;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;cursor:pointer}}
 .onglet:hover{{color:#fff}}
 .onglet.actif{{color:#fff;border-bottom-color:#ff6b5e}}
 .dossiers{{max-width:1240px;margin:28px auto 0;padding:0 20px}}
-.grille-dossiers{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:14px}}
-.dossier{{background:var(--carte);border:1px solid var(--ligne);border-left:4px solid var(--accent);border-radius:8px;padding:16px 18px}}
-.dossier h3{{font:700 19px/1.3 Georgia,serif;margin:0 0 10px}}
+.grille-dossiers{{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:8px;align-items:start}}
+.dossier{{background:var(--carte);border:1px solid var(--ligne);border-left:4px solid var(--accent);border-radius:8px;padding:9px 12px}}
+.dossier[open]{{grid-column:1/-1;padding:12px 18px}}
+.dossier summary{{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}}
+.dossier summary::-webkit-details-marker{{display:none}}
+.dossier .ouvrir{{font-size:12px;color:var(--accent);font-weight:600}}
+.dossier[open] .ouvrir{{display:none}}
+.dossier h3{{font:700 15px/1.3 Georgia,serif;margin:0}}
+.dossier[open] h3{{font-size:19px;margin-bottom:10px}}
 .dossier p{{margin:0 0 8px;font-size:14px}}
 .etiq{{display:inline-block;font:800 10px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-radius:3px;padding:2px 6px;margin-right:8px;vertical-align:1px}}
 .etiq.etabli{{background:#1f7a4d;color:#fff}}.etiq.debattu{{background:#b7791f;color:#fff}}
