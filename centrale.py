@@ -757,6 +757,9 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .choix select.actif{{background:#b3261e;border-color:#b3261e;color:#fff}}
 .barre .sujet{{font-size:14px}}
 .barre .sujet[data-sujet=""]{{font-weight:700}}
+.titre-une{{max-width:1320px;margin:0 auto;padding:18px 20px 2px;display:flex;align-items:baseline;gap:6px 16px;flex-wrap:wrap}}
+.titre-une h2{{font:800 clamp(26px,3.4vw,38px)/1.1 Georgia,"Times New Roman",serif;margin:0;padding:0 0 0 14px;border:0;border-left:6px solid var(--accent);color:var(--texte);text-transform:none;letter-spacing:0}}
+.titre-une p{{margin:0;color:var(--doux);font-size:14px}}
 .plus{{display:block;margin:18px auto 0;font:600 15px system-ui,sans-serif;cursor:pointer;border:1px solid var(--accent);background:var(--carte);color:var(--accent);border-radius:24px;padding:10px 26px}}
 .plus:hover{{background:var(--accent);color:#fff}}
 @media (max-width:700px){{.onglets{{flex-wrap:wrap;padding:0 8px}}.onglets .regions{{flex:1 1 100%}}.choix{{width:100%;justify-content:center;padding:0 0 8px}}.choix select{{flex:1;max-width:none}}.onglet{{padding:12px 10px}}}}
@@ -815,6 +818,7 @@ header .compteur{{display:inline-block;background:#b3261e;color:#fff;border-radi
 .haut .carrousel{{grid-column:1;grid-row:1}}
 .haut .mosaique{{grid-column:1;grid-row:2}}
 .haut .minute{{grid-column:2;grid-row:1/3}}
+.haut.sans-image{{height:auto;grid-template-columns:minmax(0,1fr)}}.haut.sans-image .minute{{grid-column:1;grid-row:auto;max-height:none}}
 @media (max-width:1100px){{.haut{{grid-template-columns:minmax(0,1fr);grid-template-rows:none;height:auto}}
   .haut .carrousel,.haut .mosaique,.haut .minute{{grid-column:1;grid-row:auto}}
   .haut .carrousel{{height:clamp(240px,40vh,400px)}}.haut .minute{{height:auto;max-height:420px}}
@@ -899,6 +903,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
+<div class="titre-une" id="titre-une" hidden><h2 id="titre-une-txt"></h2><p id="titre-une-nb"></p></div>
 <section class="haut" id="bloc-une">
   <div class="carrousel" id="carrousel">
     {"".join(diapo(a, i) for i, a in enumerate(diapos))}
@@ -951,7 +956,7 @@ function majHeures(){{
 majHeures();setInterval(majHeures,60000);
 
 /* carrousel */
-const diapos=[...document.querySelectorAll('.diapo')],points=[...document.querySelectorAll('.points button')],barre=document.querySelector('.progression');
+let diapos=[...document.querySelectorAll('.diapo')],points=[...document.querySelectorAll('.points button')];const barre=document.querySelector('.progression');
 let idx=0,pos=0,minuteur=null,visibles=diapos.map((_,k)=>k);
 function montrer(i){{
   if(!visibles.length)return;pos=(i+visibles.length)%visibles.length;idx=visibles[pos];
@@ -980,15 +985,42 @@ const VITESSE_BANDEAU=25; // pixels par seconde
 function vitesseBandeau(){{const p=document.querySelector('.piste');if(p)p.style.animationDuration=Math.max(30,p.scrollWidth/2/VITESSE_BANDEAU)+'s'}}
 majLangueHaut();
 
+/* « une » d'un pays, d'un onglet ou d'un dossier : même présentation que l'accueil, avec ses propres articles */
+const grilleUne=document.querySelector('#bloc-mosaique .grille'),listeMinute=document.querySelector('.minute ul'),boitePoints=document.querySelector('.points');
+const UNE0={{d:diapos.map(x=>x.outerHTML).join(''),p:boitePoints.innerHTML,g:grilleUne.innerHTML,m:listeMinute.innerHTML}};
+let cleUne='';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}})[c]);
+function champs(c){{const im=c.querySelector('.lien img');return{{lien:esc(c.querySelector('a.lien').getAttribute('href')),img:im?esc(im.getAttribute('src')):'',
+  src:esc(c.dataset.source),theme:esc(c.dataset.theme),ts:c.dataset.ts,lg:c.dataset.langue,t:esc(c.querySelector('h3').textContent),r:esc(c.querySelector('.corps p').textContent)}}}}
+const CACHER="this.style.visibility='hidden'";
+const htmlDiapo=(f,i)=>`<a class="diapo${{i?'':' active'}}" data-langue="${{f.lg}}" href="${{f.lien}}" target="_blank" rel="noopener"><img src="${{f.img}}" alt="" referrerpolicy="no-referrer" onerror="${{CACHER}}">
+  <div class="voile"><div class="meta"><span class="src">${{f.src}}</span><span class="theme">${{f.theme}}</span><time class="rel" data-ts="${{f.ts}}"></time></div><h3>${{f.t}}</h3><p>${{f.r}}</p></div></a>`;
+const htmlTuile=f=>`<a class="tuile" data-langue="${{f.lg}}" href="${{f.lien}}" target="_blank" rel="noopener"><img src="${{f.img}}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="${{CACHER}}"><span class="tsrc">${{f.src}}</span><span class="tt">${{f.t}}</span></a>`;
+const htmlMinute=f=>`<li data-langue="${{f.lg}}"><a href="${{f.lien}}" target="_blank" rel="noopener"><time class="rel" data-ts="${{f.ts}}"></time><span class="src">${{f.src}}</span><span class="t">${{f.t}}</span></a></li>`;
+function remplirUne(liste){{
+  let d,p,g,m;
+  if(!liste){{d=UNE0.d;p=UNE0.p;g=UNE0.g;m=UNE0.m}}
+  else{{const fs=liste.map(champs),ill=fs.filter(f=>f.img),dia=ill.slice(0,6);
+    d=dia.map(htmlDiapo).join('');p=dia.map((_,i)=>`<button aria-label="Article ${{i+1}}"></button>`).join('');
+    g=ill.slice(6,22).map(htmlTuile).join('');m=fs.slice(0,15).map(htmlMinute).join('')}}
+  car.querySelectorAll('.diapo').forEach(x=>x.remove());car.insertAdjacentHTML('afterbegin',d);
+  boitePoints.innerHTML=p;grilleUne.innerHTML=g;listeMinute.innerHTML=m;
+  diapos=[...car.querySelectorAll('.diapo')];points=[...boitePoints.children];
+  points.forEach((x,k)=>x.onclick=()=>{{montrer(visibles.indexOf(k));lancer()}});
+  document.getElementById('bloc-mosaique').hidden=!g;document.querySelector('.minute').hidden=!m;
+  document.getElementById('bloc-une').classList.toggle('sans-image',!d);
+  pos=0;majLangueHaut();majHeures();
+}}
+
 function filtrer(plus){{
   if(plus!==true)limite=PAGE;
   const q=document.getElementById('recherche').value.toLowerCase().trim();
-  let n=0;
+  let n=0;const trouves=[];
   cartes.forEach(c=>{{
     const ok=(!langue||c.dataset.langue===langue)&&(!region||c.dataset.regions.split('|').includes(region))&&(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
       &&(!rubrique||!!sujet||c.dataset.rubrique===rubrique)&&(!sujet||c.dataset.sujets.split('|').includes(sujet))
       &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q));
-    if(ok)n++;c.hidden=!ok||n>limite;
+    if(ok){{n++;trouves.push(c)}}c.hidden=!ok||n>limite;
   }});
   const bPlus=document.getElementById('plus');bPlus.hidden=n<=limite;
   bPlus.textContent=`Voir plus d'articles (${{n-limite}} restants)`;
@@ -999,10 +1031,17 @@ function filtrer(plus){{
   // la liste des sources ne montre que celles de la rubrique choisie
   document.querySelectorAll('.sources li').forEach(li=>li.hidden=(!!theme&&li.dataset.theme!==theme)||(!!rubrique&&!sujet&&li.dataset.rubrique!==rubrique));
   const filtre=!!(region||theme||source||selection||q||rubrique);
-  document.getElementById('bloc-une').hidden=filtre;document.getElementById('bloc-mosaique').hidden=filtre;
-  if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
-  if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;filtre?pause():lancer();
   const titre=[rubrique,sujet,region,selection?'Ma sélection':source||(theme&&theme.replace(/^Dossier /,'Dossier : '))].filter(Boolean).join(' · ');
+  // pays, onglet, sous-chapitre ou dossier : une « une » propre, comme l'accueil
+  const vueUne=!!(region||rubrique||theme)&&!source&&!selection&&!q&&n>0;
+  const cle=vueUne?[region,rubrique,sujet,theme,langue].join('|'):'';
+  if(cle!==cleUne){{remplirUne(vueUne?trouves:null);cleUne=cle}}
+  document.getElementById('titre-une').hidden=!vueUne;
+  if(vueUne){{document.getElementById('titre-une-txt').textContent=titre;
+    document.getElementById('titre-une-nb').textContent=`${{n}} article${{n>1?'s':''}} · les plus récents d'abord`}}
+  document.getElementById('bloc-une').hidden=filtre&&!vueUne;
+  if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
+  if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;(filtre&&!vueUne)?pause():lancer();
   document.getElementById('titre-fil').textContent=q?`${{n}} résultat${{n>1?'s':''}} pour « ${{q}} »`+(titre?' · '+titre:''):titre||'Toutes les publications';
 }}
 /* onglets principaux : un seul actif à la fois */
@@ -1037,7 +1076,7 @@ const panneau=document.getElementById('panneau-dossiers'),boutonDossiers=documen
 boutonDossiers.onclick=()=>{{panneau.hidden=!panneau.hidden;boutonDossiers.setAttribute('aria-expanded',!panneau.hidden)}};
 document.querySelectorAll('.dossier-btn').forEach(b=>b.addEventListener('click',()=>{{
   document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.toggle('actif',x.dataset.theme===b.dataset.theme));
-  panneau.hidden=true;document.getElementById('titre-fil').scrollIntoView({{behavior:'smooth'}})}}));
+  panneau.hidden=true;scrollTo({{top:0,behavior:'smooth'}})}}));
 document.querySelector('.dossier-lien').onclick=()=>{{panneau.hidden=true}};
 document.querySelectorAll('.onglet[data-rubrique]').forEach(b=>b.onclick=()=>{{theme='';source='';selection=false;
   document.querySelectorAll('.barre button,.dossier-btn').forEach(x=>x.classList.remove('actif'));
