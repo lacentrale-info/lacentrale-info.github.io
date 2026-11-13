@@ -49,6 +49,17 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
 #satire[open] .titre-satire{border-radius:10px 10px 0 0}
 #satire .etapes{border-radius:0 0 12px 12px;border-top:0}
 .aide{font-size:14px;color:var(--doux)}
+.assistant{background:var(--fond);border:1px solid var(--ligne);border-radius:12px;padding:12px;margin:12px 0 4px}
+.assist-tete{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.assist-tete small{color:var(--doux);font-size:13px}
+.micro{width:58px;height:58px;border-radius:50%;font-size:26px;padding:0;flex:none}
+.micro.ecoute{background:#1f7a4d;animation:pulsation 1s infinite}
+@keyframes pulsation{50%{transform:scale(1.1)}}
+.as-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;margin-top:10px}
+.as-photos button{padding:0;background:none;border:3px solid transparent;border-radius:8px;overflow:hidden;aspect-ratio:3/4}
+.as-photos button.choisie{border-color:var(--accent)}
+.as-photos img{width:100%;height:100%;object-fit:cover;display:block}
+.ou{text-align:center;color:var(--doux);font-size:13px;margin:10px 0 0}
 #sat-canvas{display:block;width:100%;margin-top:14px;border-radius:10px;touch-action:none;cursor:grab;background:#000}
 [hidden]{display:none!important}
 </style></head><body>
@@ -95,6 +106,14 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
   <p class="aide">1. Choisissez une photo : la vôtre, ou une photo libre de droits sur <a href="https://commons.wikimedia.org" target="_blank">Wikimedia Commons</a> (les photos de presse sont protégées par le droit d'auteur).<br>
   2. Écrivez la bulle. 3. <b>Touchez la bouche</b> de la personne : la pointe de la bulle y va. <b>Glissez la bulle</b> pour la déplacer.<br>
   Le bandeau « SATIRE · La Centrale » est toujours ajouté : personne ne peut prendre la bulle pour une vraie citation.</p>
+  <div class="assistant">
+    <div class="assist-tete"><button id="as-micro" type="button" class="micro" aria-label="Parler à l'assistant">🎙</button>
+      <div><b>Assistant</b><br><small id="as-etat">Touchez 🎙 et dites par exemple : « Prends une photo d'Ursula von der Leyen et ajoute une bulle disant serrez-vous la ceinture ».</small></div></div>
+    <textarea id="as-demande" style="min-height:64px" placeholder="…ou dictez ici avec le micro de votre clavier, ou écrivez votre demande"></textarea>
+    <button id="as-preparer" type="button" style="width:100%;margin-top:8px">Préparer l'avant-projet</button>
+    <div class="as-photos" id="as-photos" hidden></div>
+  </div>
+  <p class="ou">— ou à la main —</p>
   <label class="fichier" for="sat-photo">🖼 <span id="sat-nom">Choisir la photo…</span><input id="sat-photo" type="file" accept="image/*"></label>
   <label for="sat-bulle">Texte de la bulle</label>
   <textarea id="sat-bulle" style="min-height:70px" placeholder="Serrez-vous la ceinture ! Moi, j'augmente encore mon salaire."></textarea>
@@ -104,7 +123,7 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
   <input id="sat-titre" type="text" placeholder="La ceinture, c'est pour les autres">
   <canvas id="sat-canvas" hidden></canvas>
   <label class="case"><input type="checkbox" id="sat-telegram" checked> Publier aussi sur le canal Telegram (s'il est configuré)</label>
-  <button id="sat-publier" type="button" style="width:100%">Publier dans « Humour »</button>
+  <button id="sat-publier" type="button" style="width:100%">✅ Valider et publier dans « Humour »</button>
   <div class="message" id="sat-message" hidden></div>
 </div></details>
 <h2>Mes publications</h2>
@@ -223,10 +242,13 @@ async function chargerRetires(){
 const sat={img:null,bx:.5,by:.16,tx:.5,ty:.45,drag:null,exporter:false};
 const cv=$('sat-canvas'),cx=cv.getContext('2d');
 const borne=(v,a,b)=>Math.max(a,Math.min(b,v));
+/* charge une photo (fichier de l'appareil ou photo libre de Wikimedia) dans l'avant-projet */
+function chargerImage(src,credit){return new Promise((ok,ko)=>{const im=new Image();im.crossOrigin='anonymous';
+  im.onload=()=>{sat.img=im;sat.credit=credit||null;const W=Math.min(1200,im.naturalWidth);cv.width=W;
+    sat.ih=Math.round(im.naturalHeight*W/im.naturalWidth);sat.bande=Math.max(40,Math.round(W*.065));cv.height=sat.ih+sat.bande;cv.hidden=false;dessiner();ok()};
+  im.onerror=()=>ko(new Error('photo impossible à charger'));im.src=src})}
 $('sat-photo').onchange=()=>{const f=$('sat-photo').files[0];if(!f)return;$('sat-nom').textContent=f.name;
-  const im=new Image();im.onload=()=>{sat.img=im;const W=Math.min(1200,im.naturalWidth);cv.width=W;
-    sat.ih=Math.round(im.naturalHeight*W/im.naturalWidth);sat.bande=Math.max(40,Math.round(W*.065));cv.height=sat.ih+sat.bande;cv.hidden=false;dessiner()};
-  im.src=URL.createObjectURL(f)};
+  document.querySelectorAll('.as-photos button').forEach(x=>x.classList.remove('choisie'));chargerImage(URL.createObjectURL(f),null)};
 ['sat-bulle','sat-legende'].forEach(id=>$(id).addEventListener('input',dessiner));
 function couper(t,maxW){const out=[];
   /* espace insécable avant ? ! : ; » et après « : la ponctuation ne se retrouve jamais seule en début de ligne */
@@ -241,7 +263,7 @@ function dessiner(){
   cx.font=`700 ${fs}px Georgia,serif`;cx.fillStyle='#ff6b5e';cx.fillText('SATIRE',W*.02,H+B/2);
   const w1=cx.measureText('SATIRE').width;cx.textAlign='right';cx.fillStyle='#ece7dd';cx.fillText('LA CENTRALE',W*.98,H+B/2);
   const w2=cx.measureText('LA CENTRALE').width;cx.textAlign='left';cx.font=`italic ${fs}px Georgia,serif`;
-  let leg=$('sat-legende').value.trim();const place=W*.96-w1-w2-fs*2;while(leg&&cx.measureText(leg).width>place)leg=leg.slice(0,-2)+'…';
+  let leg=$('sat-legende').value.trim()||(sat.credit?sat.credit.court:'');const place=W*.96-w1-w2-fs*2;while(leg&&cx.measureText(leg).width>place)leg=leg.slice(0,-2)+'…';
   cx.fillText(leg,W*.02+w1+fs,H+B/2);
   /* bulle */
   const t=$('sat-bulle').value.trim();sat.boite=null;
@@ -276,13 +298,89 @@ $('sat-publier').onclick=async()=>{
     sat.exporter=true;dessiner();const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',.88));sat.exporter=false;dessiner();
     const h=horodatage(),doc='documents/'+h.slice(0,10)+'-satire-'+h.slice(11,19)+'.jpg';
     await deposer(doc,await enBase64Fichier(blob),'Studio : image satirique');
-    const demande={type:'publication',texte:$('sat-legende').value.trim(),commentaire:'',source:'La Centrale',rubrique:'Humour',
+    /* le crédit complet de la photo (obligatoire pour les licences libres) va dans le texte de la publication */
+    const texte=[$('sat-legende').value.trim(),sat.credit?'Satire. Photo : '+sat.credit.long:''].filter(Boolean).join(' — ');
+    const demande={type:'publication',texte,commentaire:'',source:'La Centrale',rubrique:'Humour',
       titre:$('sat-titre').value.trim()||$('sat-bulle').value.trim().slice(0,90),telegram:$('sat-telegram').checked?'1':'0',document:doc,date:new Date().toISOString()};
     await deposer('boite/'+h+'.json',enBase64Texte(JSON.stringify(demande,null,1)),'Studio : image satirique');
     m.className='message';m.textContent='✅ Envoyé ! Visible dans l\'onglet « Humour » d\'ici 2 à 5 minutes.';charger();
   }catch(err){sat.exporter=false;dessiner();m.className='message erreur';m.textContent='⚠️ '+err.message}
-  m.hidden=false;b.disabled=false;b.textContent='Publier dans « Humour »';
+  m.hidden=false;b.disabled=false;b.textContent='✅ Valider et publier dans « Humour »';
 };
+
+/* ===== Assistant : on lui parle, il prépare l'avant-projet ===== */
+function etat(t){$('as-etat').textContent=t}
+function parler(t){try{if(!window.speechSynthesis)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='fr-FR';speechSynthesis.speak(u)}catch(e){}}
+/* comprend une demande du type « prends une photo de X et ajoute une bulle disant Y (titre : Z, légende : W) » */
+function comprendre(txt){
+  let t=' '+txt.replace(/[’]/g,"'").replace(/\s+/g,' ').trim()+' ';const r={};
+  const net=s=>s.trim().replace(/^[«"“:,\s]+|[»"”,.\s]+$/g,'').trim();
+  for(const [cle,re] of [['titre',/\b(?:avec\s+)?(?:le\s+|comme\s+)?titre\s*:?\s*(.+?)(?=\s+(?:et\s+)?(?:avec\s+)?(?:la\s+|en\s+)?(?:légende|legende|bulle)\b|$)/i],
+                         ['legende',/\b(?:avec\s+)?(?:la\s+|en\s+)?l[ée]gende\s*:?\s*(.+?)(?=\s+(?:et\s+)?(?:avec\s+)?(?:le\s+|comme\s+)?(?:titre|bulle)\b|$)/i]]){
+    const m=t.match(re);if(m){r[cle]=net(m[1]);t=t.slice(0,m.index)+' '+t.slice(m.index+m[0].length)}}
+  const mb=t.match(/\b(?:une\s+|la\s+)?bulle\s+(?:qui\s+dit|disant|en\s+disant|avec(?:\s+le\s+texte)?|:)\s*(.+)$/i)||t.match(/\b(?:qui\s+dit|disant|en\s+disant)\s*:?\s*(.+)$/i);
+  if(mb){r.bulle=net(mb[1]);if(r.bulle)r.bulle=r.bulle[0].toUpperCase()+r.bulle.slice(1);t=t.slice(0,mb.index)+' '}
+  const mq=t.match(/\b(?:image|photo|portrait|t[êe]te)\s+(?:de\s+la\s+|de\s+l'|de\s+|d'|du\s+|des\s+)(.+?)(?=\s+(?:et|avec|puis|ajoute|rajoute|mets|met|place)\b|[,.;]|\s*$)/i);
+  if(mq)r.qui=net(mq[1]);
+  return r}
+/* photos libres de droits de la personne, sur Wikimedia Commons (portraits d'abord) */
+async function chercherPhotos(nom){
+  const q=new URLSearchParams({action:'query',format:'json',origin:'*',generator:'search',gsrnamespace:6,gsrlimit:40,gsrsearch:nom+' filetype:bitmap',
+    prop:'imageinfo',iiprop:'url|size|mime|extmetadata',iiextmetadatafilter:'LicenseShortName|Artist',iiurlwidth:1000});
+  const d=await (await fetch('https://commons.wikimedia.org/w/api.php?'+q)).json();
+  const mots=nom.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/\s+/).filter(w=>w.length>2);
+  const sansAccent=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return Object.values(d.query?.pages||{}).sort((a,b)=>a.index-b.index).map(p=>{const i=p.imageinfo[0],m=i.extmetadata||{};
+      return{titre:p.title,url:i.thumburl||i.url,l:i.width,h:i.height,mime:i.mime,page:i.descriptionurl,
+        licence:(m.LicenseShortName?.value||'').trim(),auteur:(m.Artist?.value||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim()}})
+    .filter(x=>/^(public domain|pd|cc0|cc by)/i.test(x.licence)&&/jpeg|png/.test(x.mime)&&x.h>=400)
+    .map(x=>({...x,complet:mots.every(w=>sansAccent(x.titre).includes(w)),nom:sansAccent(x.titre).includes(mots[mots.length-1]||'')}))
+    .filter((x,_,t)=>t.some(y=>y.complet)?x.complet:x.nom)  /* nom complet dans le titre, sinon au moins le nom de famille */
+    /* d'abord les portraits, et les licences sans obligation de partage à l'identique (domaine public, CC0, CC BY) */
+    .map(x=>({...x,score:(x.h>=x.l?2:0)+(/SA/.test(x.licence)?0:1)})).sort((a,b)=>b.score-a.score).slice(0,8)}
+function credit(x){
+  const lic=/^(public domain|pd)/i.test(x.licence)?'domaine public':x.licence,aut=x.auteur.slice(0,60);
+  return{court:'Photo '+(aut&&lic!=='domaine public'?aut.split(',')[0].slice(0,24)+' · ':'')+lic,
+    long:(aut?aut+', ':'')+lic+' (Wikimedia Commons : '+x.page+'), modifiée (ajout d\'une bulle)'+(/SA/.test(lic)?', diffusée sous la même licence':'')+'.'}}
+let photosAssistant=[];
+async function choisirPhoto(i){
+  const x=photosAssistant[i];document.querySelectorAll('.as-photos button').forEach((b,k)=>b.classList.toggle('choisie',k===i));
+  /* placement par défaut : portrait → bouche vers le tiers haut, bulle en bas à droite ; paysage → bulle en haut à droite */
+  if(x.h>=x.l){sat.tx=.5;sat.ty=.42;sat.bx=.7;sat.by=.72}else{sat.tx=.45;sat.ty=.42;sat.bx=.76;sat.by=.2}
+  $('sat-nom').textContent='Photo : '+x.titre.replace(/^File:/,'');
+  try{await chargerImage(x.url,credit(x))}catch(e){etat('⚠️ Cette photo ne se charge pas, choisissez-en une autre.')}}
+async function preparer(){
+  const txt=$('as-demande').value.trim();if(!txt){etat('Dites ou écrivez votre demande.');return}
+  if(/^(ok\s+|oui\s+|c'est bon\s+)?(publie|publier|valide|valider|vas-y|envoie)\b/i.test(txt)){$('as-demande').value='';
+    if(sat.img)$('sat-publier').click();else etat('Il n\'y a pas encore d\'avant-projet à publier.');return}
+  const r=comprendre(txt);
+  if(r.bulle)$('sat-bulle').value=r.bulle;if(r.titre)$('sat-titre').value=r.titre;if(r.legende)$('sat-legende').value=r.legende;
+  if(!r.qui){if(sat.img&&(r.bulle||r.titre||r.legende)){dessiner();etat('Avant-projet mis à jour.');parler('C\'est modifié.')}
+    else etat('Je n\'ai pas compris de qui il faut une photo. Dites par exemple : « une photo de Macron avec une bulle disant… »');return}
+  $('as-preparer').disabled=true;etat('Je cherche des photos libres de droits de '+r.qui+'…');
+  try{photosAssistant=await chercherPhotos(r.qui)}catch(e){photosAssistant=[]}
+  $('as-preparer').disabled=false;
+  if(!photosAssistant.length){$('as-photos').hidden=true;etat('Aucune photo libre de droits trouvée pour « '+r.qui+' ». Essayez le nom complet, ou choisissez une photo à la main.');parler('Je n\'ai pas trouvé de photo libre de droits.');return}
+  $('as-photos').innerHTML=photosAssistant.map((x,i)=>`<button type="button" title="${esc(x.titre)}"><img src="${esc(x.url)}" alt="" loading="lazy"></button>`).join('');
+  $('as-photos').hidden=false;$('as-photos').querySelectorAll('button').forEach((b,i)=>b.onclick=()=>choisirPhoto(i));
+  await choisirPhoto(0);
+  etat('Avant-projet prêt. 👉 Touchez la bouche de la personne sur l\'image (point rouge). Une autre photo ? Touchez-la. Puis « Valider et publier » (ou dites « publie »).');
+  parler('Voici l\'avant-projet. Touchez la bouche sur l\'image, puis validez.');
+  cv.scrollIntoView({behavior:'smooth',block:'center'})}
+$('as-preparer').onclick=preparer;
+/* reconnaissance vocale du navigateur (Chrome, Edge, Samsung Internet) ; sinon le micro du clavier */
+const Reco=window.SpeechRecognition||window.webkitSpeechRecognition;let reco=null;
+$('as-micro').onclick=()=>{
+  if(!Reco){etat('La dictée n\'existe pas dans ce navigateur : touchez la case ci-dessous puis le micro 🎙 de votre clavier.');$('as-demande').focus();return}
+  if(reco){reco.stop();return}
+  reco=new Reco();reco.lang='fr-FR';reco.interimResults=true;reco.continuous=false;let erreur=false;
+  $('as-micro').classList.add('ecoute');etat('Je vous écoute…');
+  reco.onresult=e=>{let t='';for(const x of e.results)t+=x[0].transcript;$('as-demande').value=t};
+  reco.onerror=e=>{erreur=true;etat(e.error==='not-allowed'?'Micro refusé : autorisez le micro pour ce site, ou utilisez le micro du clavier.'
+    :(e.error==='network'||e.error==='service-not-allowed')?'Ce navigateur (Brave ?) bloque la dictée : touchez la case ci-dessous puis le micro de votre clavier.'
+    :'Je n\'ai rien entendu, réessayez.');if(e.error!=='no-speech')$('as-demande').focus()};
+  reco.onend=()=>{$('as-micro').classList.remove('ecoute');reco=null;if(!erreur&&$('as-demande').value.trim())preparer()};
+  try{reco.start()}catch(e){$('as-micro').classList.remove('ecoute');reco=null;etat('Dictée impossible : utilisez le micro du clavier.')}};
 const p=new URLSearchParams(location.search);
 if(p.get('lien')||p.get('text')){$('texte').value=[p.get('text'),p.get('lien')].filter(Boolean).join(' ');majApercu()}
 afficher();
