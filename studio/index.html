@@ -86,6 +86,9 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
 </form>
 <h2>Mes publications</h2>
 <div id="liste"><p style="color:var(--doux)">Chargement…</p></div>
+<h2>Articles retirés du site</h2>
+<p style="color:var(--doux);font-size:14px;margin:0 0 6px">Pour retirer un article : ouvrez <a href="../" target="_blank">le site</a> sur cet appareil, un bouton 🗑 apparaît sur chaque article (vous seul le voyez).</p>
+<div id="retires"><p style="color:var(--doux)">Chargement…</p></div>
 </section>
 </main>
 <script>
@@ -178,6 +181,20 @@ async function charger(){
       try{await deposer('boite/'+horodatage()+'-retrait.json',enBase64Texte(JSON.stringify({type:'suppression',lien:b.dataset.lien})),'Studio : retrait');
         b.textContent='Retrait demandé'}catch(e){b.textContent='Échec'}});
   }catch(e){$('liste').innerHTML='<p class="message erreur">⚠️ '+esc(e.message)+'</p>'}
+  chargerRetires();
+}
+async function chargerRetires(){
+  try{
+    const r=await gh('masques.json',{headers:{'Accept':'application/vnd.github.raw+json'}});
+    const liste=r.ok?await r.json():[];
+    $('retires').innerHTML=liste.slice(0,100).map(m=>`<div class="pub"><div><b>${esc(m.titre||m.lien)}</b><small>${esc(m.source||'')} · retiré le ${new Date(m.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</small></div>
+      <a href="${esc(m.lien)}" target="_blank"><button class="second" type="button">Voir</button></a>
+      <button class="second" type="button" data-remettre="${esc(m.lien)}">Remettre</button></div>`).join('')||'<p style="color:var(--doux)">Aucun article retiré.</p>';
+    document.querySelectorAll('[data-remettre]').forEach(b=>b.onclick=async()=>{
+      b.disabled=true;b.textContent='…';
+      try{await deposer('boite/'+horodatage()+'-remettre.json',enBase64Texte(JSON.stringify({type:'remettre',lien:b.dataset.remettre})),'Studio : article remis');
+        b.textContent='Remis (2-5 min)'}catch(e){b.disabled=false;b.textContent='Échec'}});
+  }catch(e){$('retires').innerHTML='<p class="message erreur">⚠️ '+esc(e.message)+'</p>'}
 }
 const p=new URLSearchParams(location.search);
 if(p.get('lien')||p.get('text')){$('texte').value=[p.get('text'),p.get('lien')].filter(Boolean).join(' ');majApercu()}

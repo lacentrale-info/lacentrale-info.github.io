@@ -887,7 +887,10 @@ aside .bloc{{background:var(--carte);border:1px solid var(--ligne);border-radius
 #remonter{{position:fixed;right:18px;bottom:18px;width:44px;height:44px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:6}}
 footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 @media (prefers-reduced-motion:reduce){{.piste,.carte,.progression.court{{animation:none}}.diapo,.diapo img{{transition:none}}}}
-[hidden]{{display:none!important}}
+[hidden],[data-retire]{{display:none!important}}
+.admin .carte{{min-height:160px}}
+.actions .btn-retirer{{border-color:var(--accent);color:var(--accent);font-size:13px}}
+.actions .btn-retirer:hover{{background:var(--accent);color:#fff}}
 </style></head><body>
 <header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
 <p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
@@ -1019,7 +1022,7 @@ function filtrer(plus){{
   cartes.forEach(c=>{{
     const ok=(!langue||c.dataset.langue===langue)&&(!region||c.dataset.regions.split('|').includes(region))&&(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
       &&(!rubrique||!!sujet||c.dataset.rubrique===rubrique)&&(!sujet||c.dataset.sujets.split('|').includes(sujet))
-      &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q));
+      &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q))&&!c.dataset.retire;
     if(ok){{n++;trouves.push(c)}}c.hidden=!ok||n>limite;
   }});
   const bPlus=document.getElementById('plus');bPlus.hidden=n<=limite;
@@ -1083,6 +1086,33 @@ document.querySelectorAll('.onglet[data-rubrique]').forEach(b=>b.onclick=()=>{{t
   panneau.hidden=true;activerOnglet(b.dataset.rubrique);filtrer()}});
 etoiles.forEach(b=>b.onclick=()=>{{const l=b.closest('.carte').dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
 majEtoiles();filtrer();
+
+/* mode administrateur : seulement sur un appareil où le Studio est configuré (clé GitHub enregistrée) */
+let cleAdmin='';try{{cleAdmin=localStorage.getItem('studio-cle')||''}}catch(e){{}}
+if(cleAdmin){{
+  document.body.classList.add('admin');
+  const enB64=t=>btoa(unescape(encodeURIComponent(t)));
+  const cacherPartout=lien=>{{document.querySelectorAll('.carte').forEach(x=>{{if(x.dataset.lien===lien)x.dataset.retire='1'}});
+    document.querySelectorAll('.tuile,.minute li a,.piste a').forEach(a=>{{if(a.getAttribute('href')===lien)(a.closest('li')||a).dataset.retire='1'}})}};
+  let retires=[];try{{retires=JSON.parse(sessionStorage.getItem('centrale-retires')||'[]')}}catch(e){{}}
+  retires.forEach(cacherPartout);  /* en attente de la prochaine mise à jour du site */
+  document.querySelectorAll('.carte').forEach(c=>{{
+    if(c.dataset.lien.startsWith('#'))return;
+    const b=document.createElement('button');b.className='btn-retirer';b.title='Retirer cet article du site';b.textContent='🗑';
+    b.onclick=async()=>{{
+      if(!confirm('Retirer cet article du site ?\\n\\n'+c.querySelector('h3').textContent))return;
+      b.disabled=true;b.textContent='…';
+      try{{const r=await fetch('https://api.github.com/repos/lacentrale-info/lacentrale-info.github.io/contents/boite/'+new Date().toISOString().replace(/[:.]/g,'-')+'-masquer.json',
+          {{method:'PUT',headers:{{'Authorization':'Bearer '+cleAdmin,'Accept':'application/vnd.github+json'}},
+           body:JSON.stringify({{message:'Site : article retiré',content:enB64(JSON.stringify({{type:'masquer',lien:c.dataset.lien,titre:c.querySelector('h3').textContent,source:c.dataset.source}}))}})}});
+        if(!r.ok)throw new Error('GitHub '+r.status);
+        retires.push(c.dataset.lien);try{{sessionStorage.setItem('centrale-retires',JSON.stringify(retires))}}catch(e){{}}
+        cacherPartout(c.dataset.lien);filtrer(true);
+      }}catch(e){{b.disabled=false;b.textContent='🗑';alert('Échec du retrait : '+e.message+'\\nVérifiez la clé dans le Studio.')}}
+    }};
+    c.querySelector('.actions').appendChild(b);
+  }});
+}}
 const haut=document.getElementById('remonter');
 addEventListener('scroll',()=>haut.hidden=scrollY<800,{{passive:true}});haut.onclick=()=>scrollTo({{top:0,behavior:'smooth'}});
 </script>
@@ -1124,6 +1154,13 @@ def construire(articles, etat):
             articles = [x for x in articles if x["lien"] != a["lien"]]
         deja_vus.add(a["lien"])
         articles.append(a)
+
+    # articles retirés depuis le site ou le Studio (masques.json)
+    try:
+        masques = {m["lien"] for m in json.loads((DOSSIER / "masques.json").read_text(encoding="utf-8"))}
+    except (FileNotFoundError, json.JSONDecodeError):
+        masques = set()
+    articles = [a for a in articles if a["lien"] not in masques]
 
     maintenant = datetime.now(timezone.utc)
     for a in articles:

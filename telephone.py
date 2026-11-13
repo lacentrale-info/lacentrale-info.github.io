@@ -31,6 +31,7 @@ CONFIG = DOSSIER / "config.json"  # réglages privés (jeton du bot) : reste sur
 ETAT = DOSSIER / "etat.json"  # suivi du bot sans secret, partagé avec la version en ligne
 ENVOIS = DOSSIER / "envois.json"
 BOITE = DOSSIER / "boite"  # publications déposées par le Studio en ligne
+MASQUES = DOSSIER / "masques.json"  # articles des sources retirés du site (bouton 🗑 de l'administrateur)
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 # Sites déjà condamnés en justice (ou dissous) : ajoutés à la page mais jamais publiés sur le canal.
 SITES_NON_PUBLIES = ["civitas-institut.com", "unz.com"]
@@ -335,6 +336,14 @@ def traiter_boite():
         try:
             if demande.get("type") == "suppression":
                 retirer_publication(demande["lien"])
+            elif demande.get("type") == "masquer":  # article d'une source retiré du site depuis la page
+                masques = [m for m in lire_json(MASQUES, []) if m["lien"] != demande["lien"]]
+                masques.insert(0, {"lien": demande["lien"], "titre": demande.get("titre", ""),
+                                   "source": demande.get("source", ""),
+                                   "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+                ecrire_json(MASQUES, masques)
+            elif demande.get("type") == "remettre":
+                ecrire_json(MASQUES, [m for m in lire_json(MASQUES, []) if m["lien"] != demande["lien"]])
             else:
                 doc = demande.get("document")
                 chemin = DOSSIER / doc if doc else None
