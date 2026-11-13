@@ -228,7 +228,10 @@ $('sat-photo').onchange=()=>{const f=$('sat-photo').files[0];if(!f)return;$('sat
     sat.ih=Math.round(im.naturalHeight*W/im.naturalWidth);sat.bande=Math.max(40,Math.round(W*.065));cv.height=sat.ih+sat.bande;cv.hidden=false;dessiner()};
   im.src=URL.createObjectURL(f)};
 ['sat-bulle','sat-legende'].forEach(id=>$(id).addEventListener('input',dessiner));
-function couper(t,maxW){const out=[];t.split('\n').forEach(par=>{let l='';par.split(/\s+/).forEach(m=>{const e=l?l+' '+m:m;
+function couper(t,maxW){const out=[];
+  /* espace insécable avant ? ! : ; » et après « : la ponctuation ne se retrouve jamais seule en début de ligne */
+  t=t.replace(/ ([?!:;»])/g,' $1').replace(/« /g,'« ');
+  t.split('\n').forEach(par=>{let l='';par.split(/[ \t]+/).forEach(m=>{const e=l?l+' '+m:m;
   if(cx.measureText(e).width>maxW&&l){out.push(l);l=m}else l=e});out.push(l)});return out}
 function dessiner(){
   if(!sat.img)return;const W=cv.width,H=sat.ih;
