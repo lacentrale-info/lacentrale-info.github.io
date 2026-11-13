@@ -381,6 +381,7 @@ def credits_fonds():
         return ""
     return "Images de fond (Wikimedia Commons) : " + " · ".join(
         f'{v["nom"]} ({v["auteur"] + ", " if v.get("auteur") else ""}{v["licence"]})' for v in c.values()) + "."
+IMAGES_ENTIERES = {"Humour"}  # thèmes dont les images ne sont jamais recadrées
 RUBRIQUE_DU_THEME = {t: r for r, d in RUBRIQUES.items() for t in d["themes"]}
 _MOTIFS_SUJETS = {}
 for _r in RUBRIQUES.values():
@@ -699,15 +700,18 @@ def generer_page(articles, etat_sources):
         if len(mosaique) == 60:
             break
 
+    # dessins satiriques : l'image est montrée en entier (jamais recadrée), bandeau « SATIRE » compris
+    ent = lambda a: " entiere" if a["theme"] in IMAGES_ENTIERES else ""
+
     def tuile(a):
-        return f'''<a class="tuile" data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener">
+        return f'''<a class="tuile{ent(a)}" data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener">
   <img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
   <span class="tsrc">{e(a["source"])}</span><span class="tt">{e(a["titre"])}</span></a>'''
 
     def carte(a):
         img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
         ancre = f' id="{e(a["lien"][1:])}"' if a["lien"].startswith("#") else ""
-        return f'''<article class="carte"{ancre} data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}" data-rubrique="{e(RUBRIQUE_DU_THEME.get(a["theme"], ""))}" data-sujets="{e("|".join(a.get("sujets", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
+        return f'''<article class="carte{ent(a)}"{ancre} data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}" data-rubrique="{e(RUBRIQUE_DU_THEME.get(a["theme"], ""))}" data-sujets="{e("|".join(a.get("sujets", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
       <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
@@ -723,7 +727,7 @@ def generer_page(articles, etat_sources):
 </article>'''
 
     def diapo(a, i):
-        return f'''<a class="diapo{" active" if i == 0 else ""}" data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener">
+        return f'''<a class="diapo{" active" if i == 0 else ""}{ent(a)}" data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener">
   <img src="{e(a["image"])}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
   <div class="voile"><div class="meta"><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}"></time></div>
   <h3>{e(a["titre"])}</h3><p>{e(a["resume"])}</p></div></a>'''
@@ -901,6 +905,15 @@ header .compteur{{display:inline-block;background:#b3261e;color:#fff;border-radi
 .diapo img{{width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:transform 7s linear}}
 .diapo.active img{{transform:scale(1.12)}}
 .voile{{position:absolute;inset:auto 0 0 0;padding:50px 20px 22px;background:linear-gradient(transparent,rgba(0,0,0,.88))}}
+/* images entières (Humour) : pas de recadrage ; dans le carrousel, l'image à droite et le texte à gauche */
+.entiere img{{object-fit:contain!important;background:#16150f}}
+.diapo.entiere{{background:#16150f}}
+.diapo.entiere img,.diapo.entiere.active img{{position:absolute;top:0;right:0;width:56%;height:100%;transform:none;padding:12px 12px 12px 0}}
+.diapo.entiere .voile{{inset:0 56% 0 0;display:flex;flex-direction:column;justify-content:flex-end;background:none}}
+.tuile.entiere:hover img{{transform:none}}
+.carte.entiere img{{aspect-ratio:auto;height:auto;max-height:280px;align-self:flex-start}}
+@media (max-width:700px){{.diapo.entiere img,.diapo.entiere.active img{{width:52%;padding:8px 8px 8px 0}}.diapo.entiere .voile{{inset:0 52% 0 0;padding:12px}}
+  .diapo.entiere .voile h3{{font-size:16px}}.diapo.entiere .voile p{{display:none}}}}
 .voile h3{{font:700 clamp(18px,1.9vw,26px)/1.2 Georgia,serif;margin:6px 0 8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}}
 .voile p{{margin:0;opacity:.85;font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
 .voile .meta{{color:#ddd}}.voile .src{{color:#ff8a7f}}.voile .theme{{background:rgba(255,255,255,.15)}}
@@ -1083,11 +1096,12 @@ const UNE0={{d:diapos.map(x=>x.outerHTML).join(''),p:boitePoints.innerHTML,g:gri
 let cleUne='';
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}})[c]);
 function champs(c){{const im=c.querySelector('.lien img');return{{lien:esc(c.querySelector('a.lien').getAttribute('href')),img:im?esc(im.getAttribute('src')):'',
-  src:esc(c.dataset.source),theme:esc(c.dataset.theme),ts:c.dataset.ts,lg:c.dataset.langue,t:esc(c.querySelector('h3').textContent),r:esc(c.querySelector('.corps p').textContent)}}}}
+  src:esc(c.dataset.source),theme:esc(c.dataset.theme),ts:c.dataset.ts,lg:c.dataset.langue,t:esc(c.querySelector('h3').textContent),r:esc(c.querySelector('.corps p').textContent),
+  ent:c.classList.contains('entiere')?' entiere':''}}}}
 const CACHER="this.style.visibility='hidden'";
-const htmlDiapo=(f,i)=>`<a class="diapo${{i?'':' active'}}" data-langue="${{f.lg}}" href="${{f.lien}}" target="_blank" rel="noopener"><img src="${{f.img}}" alt="" referrerpolicy="no-referrer" onerror="${{CACHER}}">
+const htmlDiapo=(f,i)=>`<a class="diapo${{i?'':' active'}}${{f.ent}}" data-langue="${{f.lg}}" href="${{f.lien}}" target="_blank" rel="noopener"><img src="${{f.img}}" alt="" referrerpolicy="no-referrer" onerror="${{CACHER}}">
   <div class="voile"><div class="meta"><span class="src">${{f.src}}</span><span class="theme">${{f.theme}}</span><time class="rel" data-ts="${{f.ts}}"></time></div><h3>${{f.t}}</h3><p>${{f.r}}</p></div></a>`;
-const htmlTuile=f=>`<a class="tuile" data-langue="${{f.lg}}" href="${{f.lien}}" target="_blank" rel="noopener"><img src="${{f.img}}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="${{CACHER}}"><span class="tsrc">${{f.src}}</span><span class="tt">${{f.t}}</span></a>`;
+const htmlTuile=f=>`<a class="tuile${{f.ent}}" data-langue="${{f.lg}}" href="${{f.lien}}" target="_blank" rel="noopener"><img src="${{f.img}}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="${{CACHER}}"><span class="tsrc">${{f.src}}</span><span class="tt">${{f.t}}</span></a>`;
 const htmlMinute=f=>`<li data-langue="${{f.lg}}"><a href="${{f.lien}}" target="_blank" rel="noopener"><time class="rel" data-ts="${{f.ts}}"></time><span class="src">${{f.src}}</span><span class="t">${{f.t}}</span></a></li>`;
 function remplirUne(liste){{
   let d,p,g,m;
@@ -1122,6 +1136,7 @@ function filtrer(plus){{
   document.getElementById('vide').hidden=n>0;
   // la liste des sources ne montre que celles de la rubrique choisie
   document.querySelectorAll('.sources li').forEach(li=>li.hidden=(!!theme&&li.dataset.theme!==theme)||(!!rubrique&&!sujet&&li.dataset.rubrique!==rubrique));
+  {{const ul=document.querySelector('.sources');ul.closest('.bloc').hidden=![...ul.children].some(li=>!li.hidden)}} /* pas de cadre « Les sources » vide (ex. Humour) */
   const filtre=!!(region||theme||source||selection||q||rubrique);
   const titre=[rubrique,sujet,region,selection?'Ma sélection':source||(theme&&theme.replace(/^Dossier /,'Dossier : '))].filter(Boolean).join(' · ');
   // pays, onglet, sous-chapitre ou dossier : une « une » propre, comme l'accueil
