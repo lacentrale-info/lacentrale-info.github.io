@@ -382,6 +382,12 @@ def credits_fonds():
     return "Images de fond (Wikimedia Commons) : " + " · ".join(
         f'{v["nom"]} ({v["auteur"] + ", " if v.get("auteur") else ""}{v["licence"]})' for v in c.values()) + "."
 IMAGES_ENTIERES = {"Humour"}  # thèmes dont les images ne sont jamais recadrées
+
+# liens lus dans le lecteur intégré du site (même règle que lecteurPour() côté navigateur)
+_VIDEO = re.compile(r"^(https?://(www\.|m\.|web\.)?(fb\.watch/|facebook\.com/.*(videos|watch|reel|share/|posts|permalink|photo|story\.php)|instagram\.com/(?:[^/]+/)?(p|reels?|tv)/)"
+                    r"|documents/[^/]+\.(mp4|webm|mov|m4v)$)", re.I)
+def est_video(lien):
+    return bool(_VIDEO.search(lien or ""))
 RUBRIQUE_DU_THEME = {t: r for r, d in RUBRIQUES.items() for t in d["themes"]}
 _MOTIFS_SUJETS = {}
 for _r in RUBRIQUES.values():
@@ -657,6 +663,66 @@ $('insta-copier').onclick=async()=>{const t=$('legende-insta');
 </script>
 '''
 
+# Lecteur intégré : les vidéos et publications Facebook / Instagram (et les vidéos déposées
+# depuis le Studio) se regardent sur le site, dans une fenêtre, via les lecteurs officiels.
+LECTEUR = r'''
+<style>
+#lecteur{width:min(600px,94vw);max-width:94vw;padding:0;overflow:hidden;background:#000;border-color:#000}
+#lecteur .lect-barre{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;background:var(--carte)}
+#lecteur .lect-barre a{color:var(--accent);font-size:13px}
+#lecteur .lect-barre button{padding:4px 12px}
+#lect-zone iframe{display:block;width:100%;height:min(80vh,var(--h,760px));border:0;background:#fff}
+#lect-zone video{display:block;width:100%;max-height:80vh;background:#000}
+.vignette-video{width:190px;flex:none;aspect-ratio:4/3;display:grid;place-items:center;background:linear-gradient(135deg,#1c2a3a,#3b1d2a);color:#fff;font-size:40px}
+@media (max-width:560px){.vignette-video{width:100%;aspect-ratio:16/9}}
+.grille-pub .vignette-video{width:100%;aspect-ratio:16/9}
+.carte.video .lien{position:relative}
+.carte.video img+.corps::before{content:"▶";position:absolute;left:12px;top:12px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;display:grid;place-items:center;font-size:15px}
+</style>
+<dialog id="lecteur" aria-label="Lecteur vidéo">
+  <div class="lect-barre"><a id="lect-source" href="#" target="_blank" rel="noopener">Ouvrir sur le site d'origine ↗</a><button id="lect-fermer" type="button">✕ Fermer</button></div>
+  <div id="lect-zone"></div>
+</dialog>
+<script>
+(function(){
+const dlg=document.getElementById('lecteur'),zone=document.getElementById('lect-zone');
+function lecteurPour(href){
+  let u;try{u=new URL(href,location.href)}catch(e){return null}
+  const h=u.hostname.replace(/^(www|m|web)\./,''),p=u.pathname;
+  if(u.origin===location.origin&&/\/documents\/[^/]+\.(mp4|webm|mov|m4v)$/i.test(p))return{video:u.href};
+  if(h==='fb.watch'||(h==='facebook.com'&&/\/(videos|watch|reel|share\/[vr])\b/.test(p+u.search)))
+    return{iframe:'https://www.facebook.com/plugins/video.php?show_text=true&width=560&href='+encodeURIComponent(u.href),h:/\/(reel|share\/r)\b/.test(p)?'760px':'470px'};
+  if(h==='facebook.com'&&/\/(posts|permalink|share\/p|photo|story\.php)/.test(p))
+    return{iframe:'https://www.facebook.com/plugins/post.php?show_text=true&width=500&href='+encodeURIComponent(u.href),h:'640px'};
+  const ig=h==='instagram.com'&&p.match(/^\/(?:[^/]+\/)?(p|reel|reels|tv)\/([\w-]+)/);
+  if(ig)return{iframe:'https://www.instagram.com/p/'+ig[2]+'/embed/captioned/'};
+  return null;
+}
+window.lecteurPour=lecteurPour;
+function fermer(){zone.innerHTML='';if(dlg.open)dlg.close()}
+document.getElementById('lect-fermer').onclick=fermer;
+dlg.addEventListener('close',()=>{zone.innerHTML=''});
+dlg.addEventListener('click',e=>{if(e.target===dlg)fermer()});
+document.addEventListener('click',e=>{
+  const a=e.target.closest('a[href]');
+  if(!a||e.ctrlKey||e.metaKey||e.shiftKey||a.closest('#lecteur'))return;
+  const l=lecteurPour(a.getAttribute('href'));if(!l)return;
+  e.preventDefault();
+  zone.innerHTML='';
+  if(l.video){const v=document.createElement('video');v.src=l.video;v.controls=true;v.autoplay=true;v.playsInline=true;zone.appendChild(v)}
+  else{const f=document.createElement('iframe');f.src=l.iframe;f.allow='autoplay; encrypted-media; picture-in-picture; web-share; fullscreen';f.allowFullscreen=true;f.loading='eager';f.style.setProperty('--h',l.h||'760px');zone.appendChild(f)}
+  document.getElementById('lect-source').href=a.href;
+  dlg.showModal();
+},true);
+/* pastille ▶ sur les cartes vidéo (y compris celles ajoutées plus tard) */
+let prevu=0;
+const marquer=()=>{prevu=0;document.querySelectorAll('.carte:not([data-lv])').forEach(c=>{c.dataset.lv=1;const a=c.querySelector('a.lien');if(a&&lecteurPour(a.getAttribute('href')))c.classList.add('video')})};
+marquer();new MutationObserver(()=>{if(!prevu)prevu=requestAnimationFrame(marquer)}).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+'''
+PARTAGE += LECTEUR
+
 
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
@@ -710,6 +776,8 @@ def generer_page(articles, etat_sources):
 
     def carte(a):
         img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
+        if not img and est_video(a["lien"]):
+            img = '<div class="vignette-video" aria-hidden="true">▶</div>'
         ancre = f' id="{e(a["lien"][1:])}"' if a["lien"].startswith("#") else ""
         return f'''<article class="carte{ent(a)}"{ancre} data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}" data-rubrique="{e(RUBRIQUE_DU_THEME.get(a["theme"], ""))}" data-sujets="{e("|".join(a.get("sujets", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}

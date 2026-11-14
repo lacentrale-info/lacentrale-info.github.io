@@ -31,7 +31,8 @@ CONFIG = DOSSIER / "config.json"  # réglages privés (jeton du bot) : reste sur
 ETAT = DOSSIER / "etat.json"  # suivi du bot sans secret, partagé avec la version en ligne
 ENVOIS = DOSSIER / "envois.json"
 BOITE = DOSSIER / "boite"  # publications déposées par le Studio en ligne
-MASQUES = DOSSIER / "masques.json"  # articles des sources retirés du site (bouton 🗑 de l'administrateur)
+MASQUES = DOSSIER / "masques.json"
+VIDEOS = (".mp4", ".webm", ".mov", ".m4v")  # articles des sources retirés du site (bouton 🗑 de l'administrateur)
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 # Sites déjà condamnés en justice (ou dissous) : ajoutés à la page mais jamais publiés sur le canal.
 SITES_NON_PUBLIES = ["civitas-institut.com", "unz.com"]
@@ -95,8 +96,18 @@ def infos_page(url):
     if not titre:
         m = re.search(r"<title[^>]*>(.*?)</title>", page, re.I | re.S)
         titre = html.unescape(m.group(1)).strip() if m else url
+    # Facebook : « 2,8 M vues · 1,3 K réactions | Le vrai titre | Facebook » → « Le vrai titre »
+    morceaux = [x.strip() for x in titre.split("|")]
+    morceaux = [x for x in morceaux if x and x.lower() not in ("facebook", "instagram")
+                and not re.search(r"\b(vues|views|réactions|reactions|j’aime|likes)\b", x, re.I)]
+    titre = " | ".join(morceaux)
+    if not titre and re.search(r"(facebook|instagram)\.com|fb\.watch", url):
+        titre = ""  # Instagram ne donne rien sans connexion : le titre écrit dans le Studio sera utilisé
+    elif not titre:
+        titre = url
     return {"titre": titre, "resume": meta("og:description") or meta("description"),
-            "image": meta("og:image"), "site": meta("og:site_name") or urllib.parse.urlparse(url).netloc,
+            "image": meta("og:image"), "site": meta("og:site_name") or {"facebook.com": "Facebook", "fb.watch": "Facebook", "instagram.com": "Instagram"}.get(
+                urllib.parse.urlparse(url).netloc.removeprefix("www.").removeprefix("m."), urllib.parse.urlparse(url).netloc),
             "publie_le": meta("article:published_time")}
 
 
@@ -272,8 +283,9 @@ def creer_publication(champs, chemin=None):
         "titre": (champs.get("titre") or "").strip() or infos.get("titre") or lignes[0][:150]
                  or (chemin.stem.replace("_", " ") if chemin else "Publication"),
         "resume": infos.get("resume") or (texte if champs.get("titre") else reste) or
-                  (f"📄 Document : {chemin.name}" if chemin and not champs.get("rubrique") else ""),
-        "image": infos.get("image", ""),
+                  (("🎬 Vidéo" if chemin.suffix.lower() in VIDEOS else f"📄 Document : {chemin.name}")
+                   if chemin and not champs.get("rubrique") else ""),
+        "image": infos.get("image") or (champs.get("image") or "").strip(),  # vignette d'une vidéo du Studio
         "site": (champs.get("source") or "").strip() or infos.get("site") or "La Centrale",
         "lien": lien,
         "commentaire": (champs.get("commentaire") or "").strip() or (texte if infos.get("resume") else ""),

@@ -89,7 +89,7 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
 <form id="form">
   <label for="texte">Collez un lien, un article ou votre texte</label>
   <textarea id="texte" placeholder="https://… ou votre texte (la première ligne devient le titre)"></textarea>
-  <label class="fichier" for="fichier">📎 <span id="nom-fichier">Ajouter un PDF, une image…</span><input id="fichier" type="file"></label>
+  <label class="fichier" for="fichier">📎 <span id="nom-fichier">Ajouter un PDF, une image, une vidéo…</span><input id="fichier" type="file"></label>
   <label for="commentaire">Votre commentaire (facultatif)</label>
   <input id="commentaire" type="text" placeholder="Ce que vous voulez dire en publiant">
   <details><summary>Modifier le titre ou la source</summary>
@@ -173,16 +173,33 @@ function majApercu(){
   const t=$('texte').value.trim(),lien=lienDans(t),f=$('fichier').files[0];
   const sansLien=t.replace(lien,'').trim();
   const titre=$('titre').value||(lien?'':sansLien.split('\n')[0])||(f?f.name:'')||(lien?'Titre de l\'article':'');
-  const source=$('source').value||(lien?new URL(lien).hostname.replace(/^www\./,''):f?'Document':'La Centrale');
+  const social=reseau(lien),video=!!(f&&f.type.startsWith('video/'));
+  const source=$('source').value||(lien?(social||new URL(lien).hostname.replace(/^www\./,'')):f?(video?'Vidéo':'Document'):'La Centrale');
   const resume=lien?'':sansLien.split('\n').slice(1).join(' ');
   const com=$('commentaire').value;
   $('apercu').hidden=!(t||f);
-  $('apercu').innerHTML=`<div class="src">${esc(source)}${f?' · 📄 '+esc(f.name):''}</div><h3>${esc(titre)}</h3>`+
+  $('apercu').innerHTML=`<div class="src">${esc(source)}${f?' · '+(video?'🎬 ':'📄 ')+esc(f.name):''}</div><h3>${esc(titre)}</h3>`+
     (com?`<p class="com">💬 ${esc(com)}</p>`:'')+`<p>${esc(resume.slice(0,280))}</p>`+
-    (lien?'<p class="note">Le titre, l\'image et le résumé de l\'article seront ajoutés automatiquement.</p>':'');
+    (lien&&!social?'<p class="note">Le titre, l\'image et le résumé de l\'article seront ajoutés automatiquement.</p>':'')+
+    (social==='Instagram'?'<p class="note">📸 Instagram : la publication sera lisible directement sur le site. Instagram ne donne pas le titre : <b>écrivez-le dans « Modifier le titre »</b> (ouvert ci-dessus). Le compte doit être public.</p>':'')+
+    (social==='Facebook'?'<p class="note">▶ Facebook : la vidéo ou la publication sera lisible directement sur le site (lecteur officiel de Facebook). Elle doit être <b>publique</b>. Si le titre trouvé ne va pas, corrigez-le dans « Modifier le titre ».</p>':'')+
+    (video?'<p class="note">🎬 Votre vidéo sera hébergée sur le site et lisible directement. Une vignette est prise automatiquement dans la vidéo.</p>':'');
+  if(social==='Instagram'&&!$('titre').value)$('titre').closest('details').open=true;
 }
+function reseau(lien){try{const h=new URL(lien).hostname.replace(/^(www|m|web)\./,'');return h==='instagram.com'?'Instagram':(h==='facebook.com'||h==='fb.watch')?'Facebook':''}catch(e){return ''}}
+/* vignette d'une vidéo : une image prise à 1 seconde (ou plus tôt si la vidéo est très courte) */
+function vignetteVideo(f){return new Promise(ok=>{
+  const v=document.createElement('video'),url=URL.createObjectURL(f);let fini=false;
+  const fin=r=>{if(fini)return;fini=true;URL.revokeObjectURL(url);ok(r)};
+  v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;
+  v.onloadedmetadata=()=>{v.currentTime=Math.min(1,(v.duration||3)/3)};
+  v.onseeked=()=>{try{const k=Math.min(1,1280/(v.videoWidth||1280)),c=document.createElement('canvas');
+    c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    fin(c.toDataURL('image/jpeg',.82).split(',')[1])}catch(e){fin('')}};
+  v.onerror=()=>fin('');setTimeout(()=>fin(''),15000);
+})}
 ['texte','commentaire','titre','source'].forEach(id=>$(id).oninput=majApercu);
-$('fichier').onchange=()=>{const f=$('fichier').files[0];$('nom-fichier').textContent=f?f.name:'Ajouter un PDF, une image…';majApercu()};
+$('fichier').onchange=()=>{const f=$('fichier').files[0];$('nom-fichier').textContent=f?f.name:'Ajouter un PDF, une image, une vidéo…';majApercu()};
 
 /* publier */
 $('form').onsubmit=async e=>{
@@ -190,17 +207,21 @@ $('form').onsubmit=async e=>{
   const m=$('message'),b=$('publier'),f=$('fichier').files[0];
   const texte=$('texte').value.trim();
   if(!texte&&!f){m.className='message erreur';m.textContent='⚠️ Collez un lien, un texte ou ajoutez un fichier.';m.hidden=false;return}
-  if(f&&f.size>45*1024*1024){m.className='message erreur';m.textContent='⚠️ Fichier trop gros (45 Mo maximum).';m.hidden=false;return}
+  if(f&&f.size>45*1024*1024){m.className='message erreur';m.textContent='⚠️ Fichier trop gros (45 Mo maximum).'+(f.type.startsWith('video/')?' Pour une longue vidéo : publiez-la sur Facebook, YouTube ou Instagram, puis collez ici son lien.':'');m.hidden=false;return}
+  if(reseau(lienDans(texte))==='Instagram'&&!$('titre').value.trim()&&!texte.replace(lienDans(texte),'').trim()){
+    m.className='message erreur';m.textContent='⚠️ Instagram ne donne pas le titre : écrivez-le dans « Modifier le titre ».';m.hidden=false;$('titre').closest('details').open=true;$('titre').focus();return}
   b.disabled=true;b.textContent='Envoi…';
   try{
-    const h=horodatage();let document_='';
+    const h=horodatage();let document_='',vignette='';
     if(f){document_='documents/'+h.slice(0,10)+'-'+nomPropre(f.name);b.textContent='Envoi du fichier…';
-      await deposer(document_,await enBase64Fichier(f),'Studio : document '+f.name)}
-    const demande={type:'publication',texte,commentaire:$('commentaire').value,titre:$('titre').value,
+      await deposer(document_,await enBase64Fichier(f),'Studio : document '+f.name);
+      if(f.type.startsWith('video/')){b.textContent='Vignette…';const jpg=await vignetteVideo(f);
+        if(jpg){vignette=document_.replace(/\.[^.]+$/,'')+'-vignette.jpg';await deposer(vignette,jpg,'Studio : vignette vidéo')}}}
+    const demande={type:'publication',texte,commentaire:$('commentaire').value,titre:$('titre').value,image:vignette,
       source:$('source').value,telegram:$('telegram').checked?'1':'0',document:document_,date:new Date().toISOString()};
     await deposer('boite/'+h+'.json',enBase64Texte(JSON.stringify(demande,null,1)),'Studio : nouvelle publication');
     m.className='message';m.textContent='✅ Envoyé ! Visible sur le site d\'ici 2 à 5 minutes.';
-    $('form').reset();$('nom-fichier').textContent='Ajouter un PDF, une image…';$('apercu').hidden=true;charger();
+    $('form').reset();$('nom-fichier').textContent='Ajouter un PDF, une image, une vidéo…';$('apercu').hidden=true;charger();
   }catch(err){m.className='message erreur';m.textContent='⚠️ '+err.message}
   m.hidden=false;b.disabled=false;b.textContent='Publier';
 };
