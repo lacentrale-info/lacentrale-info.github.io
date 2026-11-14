@@ -671,7 +671,11 @@ LECTEUR = r'''
 #lecteur .lect-barre{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;background:var(--carte)}
 #lecteur .lect-barre a{color:var(--accent);font-size:13px}
 #lecteur .lect-barre button{padding:4px 12px}
-#lect-zone iframe{display:block;width:100%;height:min(80vh,var(--h,760px));border:0;background:#fff}
+#lect-zone{position:relative;background:#fff}
+#lect-zone iframe{position:relative;z-index:1;display:block;width:100%;height:min(80vh,var(--h,760px));border:0;background:transparent}
+#lect-zone .lect-secours{position:absolute;inset:0;z-index:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;color:#333;font-size:16px}
+#lect-zone .lect-secours .petit{font-size:13px;color:#666;max-width:420px}
+#lect-zone .lect-secours .voir{background:#c0392b;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:30px}
 #lect-zone video{display:block;width:100%;max-height:80vh;background:#000}
 .vignette-video{width:190px;flex:none;aspect-ratio:4/3;display:grid;place-items:center;background:linear-gradient(135deg,#1c2a3a,#3b1d2a);color:#fff;font-size:40px}
 @media (max-width:560px){.vignette-video{width:100%;aspect-ratio:16/9}}
@@ -710,7 +714,12 @@ document.addEventListener('click',e=>{
   e.preventDefault();
   zone.innerHTML='';
   if(l.video){const v=document.createElement('video');v.src=l.video;v.controls=true;v.autoplay=true;v.playsInline=true;zone.appendChild(v)}
-  else{const f=document.createElement('iframe');f.src=l.iframe;f.allow='autoplay; encrypted-media; picture-in-picture; web-share; fullscreen';f.allowFullscreen=true;f.loading='eager';f.style.setProperty('--h',l.h||'760px');zone.appendChild(f)}
+  else{
+    /* message de secours, caché derrière le lecteur : visible seulement si le navigateur bloque Facebook/Instagram (ex. Brave) */
+    const nom=/instagram/.test(l.iframe)?'Instagram':'Facebook',s=document.createElement('div');s.className='lect-secours';
+    s.innerHTML='<p>Chargement du lecteur '+nom+'…</p><p class="petit">Rien ne s\'affiche ? Votre navigateur bloque peut-être les lecteurs '+nom+' (dans Brave : touchez le lion 🦁 dans la barre d\'adresse et baissez les boucliers pour ce site).</p><a class="voir" target="_blank" rel="noopener">▶ Regarder sur '+nom+'</a>';
+    s.querySelector('a').href=a.href;zone.appendChild(s);
+    const f=document.createElement('iframe');f.src=l.iframe;f.allow='autoplay; encrypted-media; picture-in-picture; web-share; fullscreen';f.allowFullscreen=true;f.loading='eager';f.style.setProperty('--h',l.h||'760px');zone.appendChild(f)}
   document.getElementById('lect-source').href=a.href;
   dlg.showModal();
 },true);
