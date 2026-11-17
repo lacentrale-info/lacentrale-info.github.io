@@ -15,6 +15,7 @@ des autres comptes sont ignorés.
 On peut aussi transférer au bot des messages Telegram (y compris des PDF) :
 les fichiers sont rangés dans documents/ et republiés tels quels sur le canal.
 """
+import hashlib
 import html
 import json
 import mimetypes
@@ -250,6 +251,54 @@ def relever_envois():
     return envois, f"{nouveaux} nouveau(x) envoi(s) reçu(s)"
 
 
+def couper(texte, n=140):
+    """Coupe un texte trop long à la fin d'un mot, avec « … » (jamais au milieu d'un mot)."""
+    texte = " ".join((texte or "").split())
+    if len(texte) <= n:
+        return texte
+    return texte[:n].rsplit(" ", 1)[0].rstrip(" ,;:.-–—") + "…"
+
+
+def premiere_phrase(texte, n=140):
+    """Première ligne d'un texte, réduite à sa première phrase : sert de titre à un post Telegram."""
+    ligne = next((l.strip() for l in (texte or "").split("\n") if l.strip()), "")
+    m = re.match(r"(.{20,}?[.!?…])(\s|$)", ligne)
+    return couper(m.group(1) if m else ligne, n)
+
+
+def garder_image(url):
+    """Copie l'image d'une publication dans documents/ : les liens d'images de Telegram expirent
+    au bout de quelques jours et certains sites refusent que leurs images s'affichent ailleurs."""
+    if not url or not url.startswith("http"):
+        return url
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            sorte, donnees = r.headers.get_content_type(), r.read(8_000_000)
+        ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}.get(sorte)
+        if not ext or len(donnees) < 1000:
+            return url
+        nom = "pub-" + hashlib.sha1(url.encode()).hexdigest()[:12] + ext
+        (DOSSIER / "documents").mkdir(exist_ok=True)
+        (DOSSIER / "documents" / nom).write_bytes(donnees)
+        return f"documents/{nom}"
+    except Exception:
+        return url
+
+
+def nom_site(site, lien):
+    """« pierreantoineplaquevent.substack.com » → « Pierre-Antoine Plaquevent » (nom de la source connue)."""
+    site = (site or "").strip()
+    if not site or " " in site or "." not in site:
+        return site or "La Centrale"
+    domaine = site.lower().removeprefix("www.")
+    for s in lire_json(DOSSIER / "sources.json", []):
+        hote = urllib.parse.urlparse(s.get("flux", "")).netloc.lower().removeprefix("www.")
+        if hote == domaine and "news.google" not in hote and "youtube" not in hote:
+            return s["nom"]
+    return domaine
+
+
 def creer_publication(champs, chemin=None):
     """Publication du Studio (sur l'ordinateur ou en ligne) : mise en page, Telegram, envois.json.
 
@@ -272,6 +321,10 @@ def creer_publication(champs, chemin=None):
             infos = infos_page(lien)
         except Exception:
             infos = {"site": urllib.parse.urlparse(lien).netloc}
+    # post Telegram : la page ne donne que le nom de la chaîne comme titre → titre = première phrase du post
+    if re.match(r"https?://(t|telegram)\.me/", lien) and infos.get("resume"):
+        infos["site"] = infos.get("titre") or "Telegram"
+        infos["titre"] = premiere_phrase(infos["resume"])
     if chemin and not lien:
         lien = f"documents/{urllib.parse.quote(chemin.name)}"
     if not lien:  # texte seul : votre propre article
@@ -280,13 +333,13 @@ def creer_publication(champs, chemin=None):
     lignes = texte.split("\n")
     reste = "\n".join(lignes[1:]).strip()
     env = {
-        "titre": (champs.get("titre") or "").strip() or infos.get("titre") or lignes[0][:150]
+        "titre": (champs.get("titre") or "").strip() or couper(infos.get("titre"), 150) or couper(lignes[0], 150)
                  or (chemin.stem.replace("_", " ") if chemin else "Publication"),
         "resume": infos.get("resume") or (texte if champs.get("titre") else reste) or
                   (("🎬 Vidéo" if chemin.suffix.lower() in VIDEOS else f"📄 Document : {chemin.name}")
                    if chemin and not champs.get("rubrique") else ""),
-        "image": infos.get("image") or (champs.get("image") or "").strip(),  # vignette d'une vidéo du Studio
-        "site": (champs.get("source") or "").strip() or infos.get("site") or "La Centrale",
+        "image": garder_image(infos.get("image")) or (champs.get("image") or "").strip(),  # sinon vignette d'une vidéo du Studio
+        "site": (champs.get("source") or "").strip() or nom_site(infos.get("site"), lien),
         "lien": lien,
         "commentaire": (champs.get("commentaire") or "").strip() or (texte if infos.get("resume") else ""),
         "date": champs.get("date") or datetime.now(timezone.utc).isoformat(),
@@ -382,5 +435,5 @@ def en_articles(envois):
         "resume": (f"💬 {x['commentaire']} — " if x.get("commentaire") else "")
                   + ((x.get("resume") or "") if x["lien"].startswith("#") else (x.get("resume") or "")[:260]),
         "image": x.get("image", ""), "date": datetime.fromisoformat(x["date"]),
-        "source": x.get("site") or "La Centrale", "theme": x.get("theme") or "Nos publications", "perso": True,
+        "source": nom_site(x.get("site"), x["lien"]), "theme": x.get("theme") or "Nos publications", "perso": True,
     } for x in envois]

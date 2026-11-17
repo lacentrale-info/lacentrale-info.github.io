@@ -766,7 +766,7 @@ def generer_page(articles, etat_sources):
             break
 
     pris = {a["lien"] for a in diapos}
-    nos_publications = [a for a in articles if a.get("perso")][:6]
+    nos_publications = [a for a in articles if a.get("perso")][:12]
     mosaique, par_source = [], {}
     for a in articles:  # 2 articles maximum par source pour varier
         if a["image"] and a["lien"] not in pris and par_source.get(a["source"], 0) < 2:
@@ -792,6 +792,33 @@ def generer_page(articles, etat_sources):
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
       <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
+      <h3>{e(a["titre"])}</h3>
+      <p>{e(a["resume"])}</p>
+    </div>
+  </a>
+  <div class="actions">
+    <button class="etoile" title="Ajouter à ma sélection" aria-label="Ajouter à ma sélection">☆</button>
+    <button class="btn-telegram" title="Publier sur le canal Telegram" aria-label="Publier sur Telegram">✈</button>
+    <button class="btn-insta" title="Créer un visuel Instagram" aria-label="Créer un visuel Instagram">▣</button>
+  </div>
+</article>'''
+
+    # « Nos publications » : cartes toutes au même format (image en haut, texte dessous) ;
+    # sans image, un fond aux couleurs de la plateforme d'origine (Telegram, Instagram…)
+    PLATEFORMES = (("t.me", "Telegram", "✈"), ("telegram", "Telegram", "✈"), ("instagram", "Instagram", "◎"),
+                   ("facebook", "Facebook", "f"), ("fb.watch", "Facebook", "f"), ("youtu", "YouTube", "▶"),
+                   ("substack", "Substack", "✉"), ("x.com", "X", "𝕏"), ("twitter", "X", "𝕏"))
+
+    def carte_pub(a):
+        hote = urllib.parse.urlparse(a["lien"]).netloc.lower()
+        pf, logo = next(((n, l) for cle, n, l in PLATEFORMES if cle in hote), ("", "C"))
+        img = f'<img src="{e(a["image"])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' if a["image"] else ""
+        badge = f'<span class="badge">{e(pf)}</span>' if pf else ""
+        return f'''<article class="carte pub{ent(a)}" data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
+  <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">
+    <div class="media pf-{e(pf.lower() or "centrale")}"><div class="pf"><span class="pf-logo">{logo}</span><span class="pf-nom">{e(pf or "La Centrale")}</span></div>{img}{badge}</div>
+    <div class="corps">
+      <div class="meta"><span class="src">{e(a["source"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
       <h3>{e(a["titre"])}</h3>
       <p>{e(a["resume"])}</p>
     </div>
@@ -838,14 +865,43 @@ def generer_page(articles, etat_sources):
         dossiers = json.loads((DOSSIER / "dossiers.json").read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         dossiers = []
-    bloc_dossiers = "".join(
-        # repliés : seul le titre est visible, un clic déplie les faits et les sources
-        f'''<details class="dossier"><summary><h3>{e(d["titre"])}</h3><span class="ouvrir">{len(d["liens"])} sources · lire ▾</span></summary>
+    # Un seul bloc « Dossiers » : une carte par dossier = la revue de presse suivie (articles du thème
+    # « Dossier … » de sources.json) + les fiches documentées qui s'y rattachent (champ « theme » de dossiers.json)
+    nb_theme = {}
+    for a in articles:
+        nb_theme[a["theme"]] = nb_theme.get(a["theme"], 0) + 1
+    groupes = {t: [] for t in sorted({a["theme"] for a in articles if a["theme"].startswith("Dossier")})}
+    for d in dossiers:
+        groupes.setdefault(d.get("theme") or "Fiche " + d["titre"], []).append(d)
+    nom_dossier = lambda t: (lambda s: s[:1].upper() + s[1:])(t.removeprefix("Dossier ").removeprefix("Fiche "))
+    # les dossiers avec des fiches documentées d'abord, puis par nombre d'articles
+    ordre = sorted(groupes, key=lambda t: (-len(groupes[t]), -nb_theme.get(t, 0), t))
+    fiches_par_theme = {}
+
+    def fiche(d):
+        return f'''<section class="fait"><h3>{e(d["titre"])}</h3>
   <p><span class="etiq etabli">Établi</span>{e(d["etabli"])}</p>
   <p><span class="etiq debattu">Débattu</span>{e(d["debattu"])}</p>
-  <ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></details>'''
-        for d in dossiers
-    )
+  <details><summary>Les {len(d["liens"])} sources</summary><ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></details></section>'''
+
+    cartes_dossiers, fenetres = [], []
+    for i, t in enumerate(ordre):
+        fs, n = groupes[t], nb_theme.get(t, 0)
+        chiffres = " · ".join(x for x in (f"{n} article{'s' if n > 1 else ''}" if n else "",
+                                         f"{len(fs)} fiche{'s' if len(fs) > 1 else ''} documentée{'s' if len(fs) > 1 else ''}" if fs else "") if x)
+        resume = (" · ".join(d["titre"] for d in fs) if fs
+                  else "Revue de presse suivie automatiquement : les derniers articles parus sur le sujet.")
+        bouton_articles = (f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}">Les articles →</button>' if n else "")
+        bouton_faits = (f'<button class="dos-faits" data-fiche="fiche-{i}">📄 Les faits</button>' if fs else "")
+        cartes_dossiers.append(f'''<article class="dos"><h3>{e(nom_dossier(t))}</h3><p class="dos-chiffres">{chiffres}</p>
+  <p class="dos-resume">{e(resume)}</p><div class="dos-actions">{bouton_faits}{bouton_articles}</div></article>''')
+        if fs:
+            fiches_par_theme[t] = f"fiche-{i}"
+            fenetres.append(f'''<dialog class="fiche" id="fiche-{i}"><div class="fiche-tete"><h2>{e(nom_dossier(t))}</h2><button class="fermer" aria-label="Fermer">✕</button></div>
+  <div class="fiche-corps"><p class="fiche-intro">Ce qui est <b>établi</b> (documents officiels, faits reconnus) et ce qui reste <b>débattu</b>, avec les sources pour vérifier soi-même.</p>
+  {"".join(fiche(d) for d in fs)}
+  {f'<button class="filtre-theme dossier-btn fiche-articles" data-theme="{e(t)}">Voir les {n} articles du dossier</button>' if n else ""}</div></dialog>''')
+    bloc_dossiers = "".join(cartes_dossiers)
     nb_langue = {}
     for a in articles:
         nb_langue[a.get("langue", "fr")] = nb_langue.get(a.get("langue", "fr"), 0) + 1
@@ -871,10 +927,6 @@ def generer_page(articles, etat_sources):
     # seules les images réellement présentes dans fonds/ sont proposées
     fonds_js = json.dumps({r: {**f, "images": [i for i in f["images"] if (DOSSIER / "fonds" / i).exists()]}
                            for r, f in FONDS.items()}, ensure_ascii=False)
-    themes_dossiers = [t for t in themes if t.startswith("Dossier")]
-    boutons_dossiers = "".join(
-        f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}">📂 {e(t.removeprefix("Dossier ").capitalize())}</button>'
-        for t in themes_dossiers)
     duree_bandeau = 14 * min(len(articles), 60)  # environ 45 pixels par seconde, lisible
 
     return f'''<!doctype html>
@@ -908,34 +960,69 @@ header p.maj{{font:12px system-ui,sans-serif;opacity:.75;margin-top:4px}}
 .plus{{display:block;margin:18px auto 0;font:600 15px system-ui,sans-serif;cursor:pointer;border:1px solid var(--accent);background:var(--carte);color:var(--accent);border-radius:24px;padding:10px 26px}}
 .plus:hover{{background:var(--accent);color:#fff}}
 @media (max-width:700px){{.onglets{{flex-wrap:wrap;padding:0 8px}}.onglets .regions{{flex:1 1 100%}}.choix{{width:100%;justify-content:center;padding:0 0 8px}}.choix select{{flex:1;max-width:none}}.onglet{{padding:12px 10px}}}}
-.panneau-dossiers{{background:#211f19;display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px;justify-content:center;border-top:1px solid #333}}
-.panneau-dossiers button,.liste-dossiers button{{font:600 13px system-ui,sans-serif;cursor:pointer;border-radius:8px;padding:5px 10px;border:1px solid var(--accent);background:var(--carte);color:var(--texte)}}
-.panneau-dossiers button.actif,.liste-dossiers button.actif{{background:var(--accent);color:#fff}}
-.dossier-lien{{color:#ff8a7f;align-self:center;font-size:14px}}
-.liste-dossiers{{display:flex;flex-wrap:wrap;gap:6px}}
-.liste-dossiers button{{text-align:left}}
 .onglet{{font:700 14px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#cfc8bb;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;cursor:pointer}}
 .onglet:hover{{color:#fff}}
 .onglet.actif{{color:#fff;border-bottom-color:#ff6b5e}}
-.dossiers{{max-width:1240px;margin:28px auto 0;padding:0 20px}}
-.grille-dossiers{{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:8px;align-items:start}}
-.dossier{{background:var(--carte);border:1px solid var(--ligne);border-left:4px solid var(--accent);border-radius:8px;padding:9px 12px}}
-.dossier[open]{{grid-column:1/-1;padding:12px 18px}}
-.dossier summary{{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}}
-.dossier summary::-webkit-details-marker{{display:none}}
-.dossier .ouvrir{{font-size:12px;color:var(--accent);font-weight:600}}
-.dossier[open] .ouvrir{{display:none}}
-.dossier h3{{font:700 15px/1.3 Georgia,serif;margin:0}}
-.dossier[open] h3{{font-size:19px;margin-bottom:10px}}
-.dossier p{{margin:0 0 8px;font-size:14px}}
+/* Dossiers : une carte par dossier, les faits dans une fenêtre */
+.dossiers{{max-width:1240px;margin:32px auto 0;padding:0 20px}}
+.dossiers .chapeau{{margin:-8px 0 14px;color:var(--doux);font-size:14px}}
+.grille-dossiers{{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,265px),1fr));gap:14px}}
+.dos{{background:var(--carte);border:1px solid var(--ligne);border-top:4px solid var(--accent);border-radius:10px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:6px}}
+.dos h3{{font:800 20px/1.2 Georgia,serif;margin:0}}
+.dos-chiffres{{margin:0;font:700 12px system-ui,sans-serif;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}}
+.dos-resume{{margin:4px 0 8px;color:var(--doux);font-size:14px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
+.dos-actions{{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px}}
+.dos-actions button,.fiche-articles,#titre-une-faits{{font:600 13px system-ui,sans-serif;cursor:pointer;border-radius:20px;padding:7px 14px;border:1px solid var(--accent);background:var(--carte);color:var(--accent)}}
+.dos-actions .dos-faits,.fiche-articles{{background:var(--accent);color:#fff}}
+.dos-actions button:hover,#titre-une-faits:hover{{background:var(--accent);color:#fff}}
+dialog.fiche{{width:min(760px,calc(100% - 24px));max-height:calc(100dvh - 40px);border:0;border-radius:12px;padding:0;background:var(--carte);color:var(--texte);box-shadow:0 24px 70px rgba(0,0,0,.45)}}
+dialog.fiche::backdrop{{background:rgba(10,8,5,.6)}}
+.fiche-tete{{position:sticky;top:0;z-index:1;background:var(--carte);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:3px solid var(--accent)}}
+.fiche-tete h2{{margin:0;padding:0;border:0;font:800 24px/1.15 Georgia,serif;text-transform:none;letter-spacing:0;color:var(--texte)}}
+.fermer{{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--ligne);background:var(--fond);color:var(--texte);font-size:16px;cursor:pointer}}
+.fiche-corps{{padding:4px 20px 22px}}
+.fiche-intro{{color:var(--doux);font-size:13.5px;margin:12px 0 0}}
+.fait{{padding:16px 0;border-bottom:1px solid var(--ligne)}}
+.fait h3{{font:700 18px/1.3 Georgia,serif;margin:0 0 10px}}
+.fait p{{margin:0 0 10px;font-size:15px;line-height:1.55}}
+.fait summary{{cursor:pointer;color:var(--accent);font-weight:700;font-size:13px}}
+.fait ul{{margin:8px 0 0;padding-left:18px;font-size:13.5px}}.fait li{{margin:4px 0}}
+.fait a{{color:var(--accent)}}
+.fiche-articles{{display:block;margin:18px auto 0;padding:10px 22px;font-size:14px}}
 .etiq{{display:inline-block;font:800 10px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-radius:3px;padding:2px 6px;margin-right:8px;vertical-align:1px}}
 .etiq.etabli{{background:#1f7a4d;color:#fff}}.etiq.debattu{{background:#b7791f;color:#fff}}
-.dossier ul{{margin:8px 0 0;padding-left:18px;font-size:13px}}
-.dossier a{{color:var(--accent)}}
-.nos-pub{{max-width:1240px;margin:20px auto 0;padding:0 20px}}
-.grille-pub{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:12px}}
-.grille-pub .carte{{border:2px solid var(--accent)}}
-.grille-pub .carte .lien{{display:block}}.grille-pub .carte img{{width:100%;aspect-ratio:16/9}}
+#titre-une-faits{{align-self:center}}
+/* Nos publications : un rail de cartes au même format, qu'on fait défiler */
+.nos-pub{{max-width:1240px;margin:24px auto 0;padding:0 20px}}
+.nos-pub .tete{{display:flex;align-items:center;gap:8px;border-bottom:2px solid var(--accent);margin-bottom:14px}}
+.nos-pub .tete h2{{border:0;margin:0;padding:0 0 8px;flex:1}}
+.rail-btn{{width:32px;height:32px;margin-bottom:6px;border-radius:50%;border:1px solid var(--ligne);background:var(--carte);color:var(--texte);font-size:18px;cursor:pointer}}
+.rail-btn:hover{{background:var(--accent);border-color:var(--accent);color:#fff}}
+.rail{{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 3*14px)/4);gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding-bottom:10px}}
+@media (max-width:1000px){{.rail{{grid-auto-columns:calc((100% - 2*14px)/3)}}}}
+@media (max-width:760px){{.rail{{grid-auto-columns:78%}}}}
+.carte.pub{{scroll-snap-align:start;display:flex;flex-direction:column;border-radius:10px;animation:none}}
+.carte.pub .lien{{display:flex;flex-direction:column;gap:0}}
+.pub .media{{position:relative;aspect-ratio:16/10;overflow:hidden;flex:none}}
+.carte.pub .media img{{position:absolute;inset:0;width:100%;height:100%;max-height:none;aspect-ratio:auto;object-fit:cover}}
+.carte.pub.entiere .media img{{object-fit:contain;background:#16150f}}
+.pf{{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;background:linear-gradient(135deg,#2a2620,#7a1d16)}}
+.pf-logo{{font:800 44px/1 Georgia,serif}}
+.pf-nom{{font:800 11px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.14em;opacity:.9}}
+.pf-telegram .pf{{background:linear-gradient(135deg,#1683c4,#2aabee)}}
+.pf-instagram .pf{{background:linear-gradient(45deg,#f09433,#dc2743 50%,#8a3ab9)}}
+.pf-facebook .pf{{background:linear-gradient(135deg,#0d55c4,#1877f2)}}
+.pf-youtube .pf{{background:linear-gradient(135deg,#8f0000,#e00)}}
+.pf-substack .pf{{background:linear-gradient(135deg,#b4410f,#ff6719)}}
+.pf-x .pf{{background:linear-gradient(135deg,#000,#333)}}
+.pub .badge{{position:absolute;left:10px;top:10px;z-index:1;background:rgba(0,0,0,.62);color:#fff;font:800 10px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em;border-radius:3px;padding:3px 7px}}
+.pub.video .media::after{{content:"▶";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;width:58px;height:58px;padding-left:4px;border-radius:50%;background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.85);color:#fff;display:grid;place-items:center;font-size:22px}}
+.pub.video .pf-logo{{visibility:hidden}}.pub.video .pf-nom{{margin-top:40px}}
+.carte.pub .corps{{padding:12px 14px 14px}}
+.carte.pub h3{{font-size:16px;margin:6px 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
+.carte.pub p{{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;overflow-wrap:anywhere}}
+.carte.pub .actions{{top:10px;right:10px;z-index:2}}
+.carte.pub .actions button{{background:rgba(255,255,255,.92);color:#333;border-color:transparent}}
 .mosaique{{min-width:0}}
 .grille{{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}}
 .tuile{{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--nuit);color:#fff;text-decoration:none;display:block}}
@@ -1065,17 +1152,16 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="">À la une</button>{onglets}
-  <button class="onglet" id="ouvrir-dossiers" aria-expanded="false">📂 Dossiers ▾</button></div>
+  <button class="onglet" id="ouvrir-dossiers"{" hidden" if not ordre else ""}>📂 Dossiers</button></div>
   <div class="choix"><select id="choix-region" aria-label="Région"><option value="">🌍 Toutes les régions</option>{options_regions}</select>
   <select id="choix-langue" aria-label="Langue"><option value="">🗣 Toutes les langues</option>{options_langues}</select></div></nav>
-<div class="panneau-dossiers" id="panneau-dossiers" hidden>{boutons_dossiers}<a href="#bloc-dossiers" class="dossier-lien">Dossiers documentés (faits et sources) ↓</a></div>
 <div class="barre">
   <form class="recherche" id="form-recherche" role="search"><input id="recherche" type="search" enterkeyhint="search" placeholder="Rechercher un mot, un sujet…"><button type="submit" aria-label="Rechercher">🔍</button></form>
   {sous_chapitres}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
-<div class="titre-une" id="titre-une" hidden><h2 id="titre-une-txt"></h2><p id="titre-une-nb"></p></div>
+<div class="titre-une" id="titre-une" hidden><h2 id="titre-une-txt"></h2><p id="titre-une-nb"></p><button id="titre-une-faits" hidden>📄 Les faits et les sources</button></div>
 <section class="haut" id="bloc-une">
   <div class="carrousel" id="carrousel">
     {"".join(diapo(a, i) for i, a in enumerate(diapos))}
@@ -1086,13 +1172,14 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <div class="mosaique" id="bloc-mosaique"><div class="grille">{"".join(tuile(a) for a in mosaique)}</div></div>
   <div class="minute"><h2>Dernière minute</h2><ul>{derniere_minute}</ul></div>
 </section>
-<section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><h2>Nos publications</h2><div class="grille-pub">{"".join(carte(a) for a in nos_publications)}</div></section>
-<section class="dossiers" id="bloc-dossiers"{" hidden" if not dossiers else ""}><h2>Dossiers documentés · les faits et leurs sources</h2><div class="grille-dossiers">{bloc_dossiers}</div></section>
+<section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><div class="tete"><h2>Nos publications</h2><button class="rail-btn" data-sens="-1" aria-label="Publications précédentes">‹</button><button class="rail-btn" data-sens="1" aria-label="Publications suivantes">›</button></div>
+  <div class="rail" id="rail-pub">{"".join(carte_pub(a) for a in nos_publications)}</div></section>
+<section class="dossiers" id="bloc-dossiers"{" hidden" if not ordre else ""}><h2>Nos dossiers</h2><p class="chapeau">Les sujets suivis de près : les articles parus, et pour certains une fiche qui sépare ce qui est établi de ce qui reste débattu, sources à l'appui.</p><div class="grille-dossiers">{bloc_dossiers}</div></section>
+{"".join(fenetres)}
 <main>
   <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
   <p class="vide" id="vide" hidden>Aucun article ne correspond.</p><button class="plus" id="plus" hidden>Voir plus</button></section>
   <aside>
-    <div class="bloc bloc-dossiers"><h2>Nos dossiers</h2><div class="liste-dossiers">{boutons_dossiers}</div></div>
     <div class="bloc"><h2>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
     <div class="bloc"><h2>Notre ligne</h2><p style="margin:0 0 10px;color:var(--doux);font-size:14px"><b style="color:var(--texte)">La démocratie participative.</b> Les citoyens n'ont pas besoin d'étiquettes ni d'intermédiaires pour penser : ils ont besoin d'accès aux faits, aux documents et à tous les points de vue, pour décider eux-mêmes.</p>
     <p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
@@ -1223,6 +1310,7 @@ function filtrer(plus){{
   document.getElementById('titre-une').hidden=!vueUne;
   if(vueUne){{document.getElementById('titre-une-txt').textContent=titre;
     document.getElementById('titre-une-nb').textContent=`${{n}} article${{n>1?'s':''}} · les plus récents d'abord`}}
+  document.getElementById('titre-une-faits').hidden=!(vueUne&&FICHES[theme]);
   document.getElementById('bloc-une').hidden=filtre&&!vueUne;
   if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
   if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;(filtre&&!vueUne)?pause():lancer();
@@ -1252,19 +1340,35 @@ document.getElementById('accueil').onclick=ev=>{{ev.preventDefault();
   region='';theme='';source='';selection=false;document.getElementById('recherche').value='';
   choixRegion.value='';choixRegion.classList.remove('actif');activerOnglet('');
   document.querySelectorAll('.barre button,.dossier-btn').forEach(x=>x.classList.remove('actif'));
-  document.getElementById('panneau-dossiers').hidden=true;filtrer();scrollTo({{top:0,behavior:'smooth'}})}};
+  filtrer();scrollTo({{top:0,behavior:'smooth'}})}};
 choixLangue.onchange=()=>{{langue=choixLangue.value;try{{localStorage.setItem('centrale-langue',langue)}}catch(x){{}}
   choixLangue.classList.toggle('actif',!!langue);majLangueHaut();filtrer()}};
 choixRegion.onchange=()=>{{region=choixRegion.value;choixRegion.classList.toggle('actif',!!region);filtrer()}};
-const panneau=document.getElementById('panneau-dossiers'),boutonDossiers=document.getElementById('ouvrir-dossiers');
-boutonDossiers.onclick=()=>{{panneau.hidden=!panneau.hidden;boutonDossiers.setAttribute('aria-expanded',!panneau.hidden)}};
-document.querySelectorAll('.dossier-btn').forEach(b=>b.addEventListener('click',()=>{{
-  document.querySelectorAll('.dossier-btn').forEach(x=>x.classList.toggle('actif',x.dataset.theme===b.dataset.theme));
-  panneau.hidden=true;scrollTo({{top:0,behavior:'smooth'}})}}));
-document.querySelector('.dossier-lien').onclick=()=>{{panneau.hidden=true}};
+/* dossiers : l'onglet mène au bloc « Nos dossiers » ; « Voir les articles » ouvre la une du dossier ;
+   « Les faits et les sources » ouvre la fiche dans une fenêtre */
+const FICHES={json.dumps(fiches_par_theme, ensure_ascii=False)};
+const fermerFiches=()=>document.querySelectorAll('dialog.fiche[open]').forEach(d=>d.close());
+document.getElementById('ouvrir-dossiers').onclick=()=>{{
+  region='';theme='';source='';selection=false;document.getElementById('recherche').value='';
+  choixRegion.value='';choixRegion.classList.remove('actif');activerOnglet('');
+  document.querySelectorAll('.barre button').forEach(x=>x.classList.remove('actif'));filtrer();
+  document.getElementById('ouvrir-dossiers').classList.add('actif');
+  document.querySelectorAll('.onglet[data-rubrique]').forEach(x=>x.classList.remove('actif'));
+  document.getElementById('bloc-dossiers').scrollIntoView({{behavior:'smooth'}})}};
+document.querySelectorAll('.dossier-btn').forEach(b=>b.addEventListener('click',()=>{{fermerFiches();scrollTo({{top:0,behavior:'smooth'}})}}));
+const ouvrirFiche=id=>{{const d=document.getElementById(id);if(d){{d.showModal();d.querySelector('.fiche-corps').scrollTop=0}}}};
+document.querySelectorAll('.dos-faits').forEach(b=>b.onclick=()=>ouvrirFiche(b.dataset.fiche));
+document.getElementById('titre-une-faits').onclick=()=>ouvrirFiche(FICHES[theme]);
+document.querySelectorAll('dialog.fiche').forEach(d=>{{d.querySelector('.fermer').onclick=()=>d.close();
+  d.addEventListener('click',ev=>{{if(ev.target===d)d.close()}})}});  /* clic à côté de la fenêtre : on ferme */
+/* rail « Nos publications » : flèches, cachées s'il n'y a rien à faire défiler */
+const rail=document.getElementById('rail-pub');
+document.querySelectorAll('.rail-btn').forEach(b=>b.onclick=()=>rail.scrollBy({{left:b.dataset.sens*rail.clientWidth*.9,behavior:'smooth'}}));
+const majRail=()=>document.querySelectorAll('.rail-btn').forEach(b=>b.hidden=rail.scrollWidth<=rail.clientWidth+4);
+majRail();addEventListener('resize',majRail);
 document.querySelectorAll('.onglet[data-rubrique]').forEach(b=>b.onclick=()=>{{theme='';source='';selection=false;
   document.querySelectorAll('.barre button,.dossier-btn').forEach(x=>x.classList.remove('actif'));
-  panneau.hidden=true;activerOnglet(b.dataset.rubrique);filtrer()}});
+  activerOnglet(b.dataset.rubrique);filtrer()}});
 etoiles.forEach(b=>b.onclick=()=>{{const l=b.closest('.carte').dataset.lien;favoris.has(l)?favoris.delete(l):favoris.add(l);sauver();majEtoiles();if(selection)filtrer()}});
 majEtoiles();filtrer();
 
