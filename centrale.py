@@ -388,6 +388,16 @@ _VIDEO = re.compile(r"^(https?://(www\.|m\.|web\.)?(fb\.watch/|facebook\.com/.*(
                     r"|documents/[^/]+\.(mp4|webm|mov|m4v)$)", re.I)
 def est_video(lien):
     return bool(_VIDEO.search(lien or ""))
+# « Mes fils » : la une personnelle d'un visiteur. Fils tout prêts proposés en un clic.
+# r = onglets entiers, s = sous-chapitres (l'un OU l'autre) ; g = régions, m = mots : « seulement si l'article en parle ».
+FILS_PRETS = [
+    {"n": "Résilience", "e": "🌱", "r": ["Autonomie"], "s": ["Écologie & agriculture", "Alimentation"], "g": [], "m": []},
+    {"n": "Russie & Ukraine", "e": "🌍", "r": ["Géopolitique"], "s": [], "g": ["Russie / Ukraine"], "m": []},
+    {"n": "Argent & dette", "e": "💶", "r": [], "s": ["Dette", "Banques & monnaie", "Inflation & prix"], "g": [], "m": []},
+    {"n": "Démocratie & libertés", "e": "🗳", "r": [], "s": ["Démocratie & RIC", "Libertés", "Médias & censure"], "g": [], "m": []},
+    {"n": "Conscience", "e": "🧭", "r": ["Chamanisme"], "s": ["Psychédéliques"], "g": [], "m": []},
+    {"n": "Santé", "e": "🩺", "r": ["Santé"], "s": [], "g": [], "m": []},
+]
 RUBRIQUE_DU_THEME = {t: r for r, d in RUBRIQUES.items() for t in d["themes"]}
 _MOTIFS_SUJETS = {}
 for _r in RUBRIQUES.values():
@@ -733,6 +743,138 @@ marquer();new MutationObserver(()=>{if(!prevu)prevu=requestAnimationFrame(marque
 PARTAGE += LECTEUR
 
 
+# « Mes fils » : chaque visiteur se compose sa une (sujets, sous-chapitres, régions, mots).
+# Rien n'est envoyé nulle part : les fils restent dans le navigateur (localStorage) ; un lien (#fil&…)
+# permet de les ouvrir sur un autre appareil ou de les partager. Utilise les variables de la page
+# (fil, theme, filtrer, activerOnglet…) ; __FILS_DONNEES__ est remplacé par generer_page().
+MES_FILS = r'''<script>
+(()=>{
+const D=__FILS_DONNEES__;
+const sansAccent=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const h=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+let fils=[];try{fils=JSON.parse(localStorage.getItem('centrale-fils')||'[]')}catch(e){}
+fils=fils.filter(f=>f&&f.id&&Array.isArray(f.r));
+const sauverFils=()=>{try{localStorage.setItem('centrale-fils',JSON.stringify(fils))}catch(e){}};
+const memoActif=id=>{try{id?localStorage.setItem('centrale-fil-actif',id):localStorage.removeItem('centrale-fil-actif')}catch(e){}};
+const cleFil=f=>JSON.stringify([f.n,f.e,...['r','s','g','m'].map(k=>[...f[k]].sort())]);
+window.filGarde=f=>fils.some(x=>cleFil(x)===cleFil(f));
+/* un article est dans le fil s'il est dans un des onglets OU sous-chapitres choisis,
+   et (si des régions ou des mots sont donnés) s'il parle d'au moins l'un d'eux */
+const reMots=new Map();
+const reMot=m=>{if(!reMots.has(m))reMots.set(m,new RegExp('(^|[^a-z0-9])'+sansAccent(m).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));return reMots.get(m)};
+window.dansLeFil=(c,f)=>{
+  const sj=c.dataset.sujets.split('|');
+  if((f.r.length||f.s.length)&&!(f.r.includes(c.dataset.rubrique)||f.s.some(s=>sj.includes(s))))return false;
+  if(!f.g.length&&!f.m.length)return true;
+  const rg=c.dataset.regions.split('|');if(f.g.some(g=>rg.includes(g)))return true;
+  if(c._txt==null)c._txt=sansAccent(c.querySelector('h3').textContent+' '+c.querySelector('.corps p').textContent);
+  return f.m.some(m=>reMot(m).test(c._txt));
+};
+const lienFil=f=>{const p=new URLSearchParams({fil:'1',n:f.n,e:f.e});['r','s','g','m'].forEach(k=>{if(f[k].length)p.set(k,f[k].join('|'))});
+  return location.href.split('#')[0]+'#'+p.toString()};
+const lireLien=()=>{const p=new URLSearchParams(location.hash.slice(1));if(!p.has('fil'))return null;
+  const l=k=>(p.get(k)||'').split('|').map(x=>x.trim()).filter(Boolean).slice(0,40);
+  const f={n:(p.get('n')||'Fil partagé').slice(0,40),e:(p.get('e')||'✦').slice(0,8),r:l('r'),s:l('s'),g:l('g'),m:l('m')};
+  return fils.find(x=>cleFil(x)===cleFil(f))||f};
+const majAdresse=()=>{try{history.replaceState(null,'',fil?lienFil(fil):location.href.split('#')[0])}catch(e){}};
+let minuteurToast;
+function toast(m){const t=document.getElementById('toast');(dlg.open?dlg:document.body).appendChild(t);
+  t.textContent=m;t.hidden=false;clearTimeout(minuteurToast);minuteurToast=setTimeout(()=>t.hidden=true,3800)}
+async function partager(f){const u=lienFil(f);
+  try{if(navigator.share){await navigator.share({title:'La Centrale · '+f.e+' '+f.n,url:u});return}}catch(e){if(e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(u);toast('Lien copié : collez-le dans un message ou gardez-le en favori')}catch(e){prompt('Copiez ce lien :',u)}}
+
+/* barre du haut : un bouton par fil + « Mes fils » */
+const barreFils=document.getElementById('barre-fils');
+function majBarre(){
+  barreFils.innerHTML=fils.map(f=>`<button class="fil-chip${fil&&fil.id===f.id?' actif':''}" data-id="${h(f.id)}">${h(f.e)} ${h(f.n)}</button>`).join('')
+    +`<button id="gerer-fils">${fils.length?'✦ Mes fils':'✦ Créer mon fil'}</button>`;
+  barreFils.querySelectorAll('.fil-chip').forEach(b=>b.onclick=()=>{const f=fils.find(x=>x.id===b.dataset.id);
+    if(fil&&fil.id===f.id)quitterFil(true);else choisirFil(f)});
+  document.getElementById('gerer-fils').onclick=ouvrirGestion;
+}
+function choisirFil(f){
+  theme='';source='';selection=false;document.getElementById('recherche').value='';
+  activerOnglet('');
+  document.querySelectorAll('.barre button,.dossier-btn').forEach(x=>x.classList.remove('actif'));
+  fil=f;memoActif(f.id||'');majFond(f.r[0]||'');majBarre();majAdresse();filtrer();
+  scrollTo({top:0,behavior:'smooth'});
+}
+window.quitterFil=refiltrer=>{fil=null;memoActif('');majBarre();majAdresse();if(refiltrer===true){majFond('');filtrer()}};
+document.getElementById('fil-quitter').onclick=()=>{quitterFil(true);scrollTo({top:0,behavior:'smooth'})};
+document.getElementById('fil-partager').onclick=()=>partager(fil);
+document.getElementById('fil-garder').onclick=()=>{const f={...fil,id:'f'+Date.now()};fils.push(f);sauverFils();
+  fil=f;memoActif(f.id);majBarre();filtrer();toast('Fil gardé : il est maintenant dans la barre, en haut de la page')};
+document.getElementById('fil-modifier').onclick=()=>{ouvrirGestion();editer(fil)};
+
+/* fenêtre « Mes fils » : la liste, les fils tout prêts, et l'éditeur */
+const dlg=document.getElementById('dlg-fils'),corps=document.getElementById('fils-corps');
+const resume=f=>[...f.r.map(r=>r+' (tout)'),...f.s].join(' · ')+((f.g.length||f.m.length)?' — si ça parle de : '+[...f.g,...f.m].join(', '):'');
+function ouvrirGestion(){vueListe();if(!dlg.open)dlg.showModal();dlg.scrollTop=0}
+function vueListe(){
+  corps.innerHTML=`<p class="fiche-intro">Un fil, c'est <b>votre propre une</b> : seulement les sujets qui vous intéressent. Faites-en un par centre d'intérêt, ou un par personne de la maison. Vos fils restent sur cet appareil ; le bouton 🔗 donne un lien pour les ouvrir ailleurs ou les partager.</p>
+  <h3 class="fils-titre">Vos fils</h3>
+  ${fils.length?fils.map((f,i)=>`<div class="fil-ligne"><button class="fil-ouvrir" data-i="${i}">${h(f.e)} ${h(f.n)}<small>${h(resume(f))}</small></button><button class="mini" data-act="modifier" data-i="${i}" title="Modifier" aria-label="Modifier">✎</button><button class="mini" data-act="lien" data-i="${i}" title="Partager le lien" aria-label="Partager le lien">🔗</button><button class="mini" data-act="suppr" data-i="${i}" title="Supprimer" aria-label="Supprimer">🗑</button></div>`).join(''):'<p class="fils-aide">Aucun fil pour l\'instant : créez le vôtre ou prenez-en un tout prêt.</p>'}
+  <button class="btn-plein" id="fils-creer" style="margin-top:12px">＋ Créer un fil</button>
+  <h3 class="fils-titre">Fils tout prêts</h3><p class="fils-aide">Un clic pour l'ajouter à vos fils (vous pourrez le modifier ensuite).</p>
+  <div class="fils-prets">${D.prets.map((f,i)=>`<button class="puce" data-pret="${i}">${h(f.e)} ${h(f.n)} ＋</button>`).join('')}</div>`;
+  corps.querySelectorAll('.fil-ouvrir').forEach(b=>b.onclick=()=>{dlg.close();choisirFil(fils[b.dataset.i])});
+  corps.querySelectorAll('.mini').forEach(b=>b.onclick=()=>{const f=fils[b.dataset.i];
+    if(b.dataset.act==='modifier')editer(f);
+    else if(b.dataset.act==='lien')partager(f);
+    else if(confirm('Supprimer le fil « '+f.n+' » ?')){fils.splice(b.dataset.i,1);sauverFils();
+      if(fil&&fil.id===f.id)quitterFil(true);majBarre();vueListe()}});
+  document.getElementById('fils-creer').onclick=()=>editer(null);
+  corps.querySelectorAll('[data-pret]').forEach(b=>b.onclick=()=>{
+    const p=JSON.parse(JSON.stringify(D.prets[b.dataset.pret]));
+    let f=fils.find(x=>cleFil(x)===cleFil(p));
+    if(!f){f={...p,id:'f'+Date.now()};fils.push(f);sauverFils()}
+    dlg.close();choisirFil(f)});
+}
+const EMOJIS=['🌱','🌍','💶','🗳','🧭','🩺','🔥','⚡','🏡','📚','🕊','⭐','🎯','🐝'];
+function editer(f){
+  const b=f?JSON.parse(JSON.stringify({n:f.n,e:f.e,r:f.r,s:f.s,g:f.g,m:f.m})):{n:'',e:'🌱',r:[],s:[],g:[],m:[]};
+  const id=f&&f.id;
+  corps.innerHTML=`<label for="fil-nom">Nom du fil</label><input type="text" id="fil-nom" maxlength="30" placeholder="ex. Mon jardin, Papa, Géopolitique…" value="${h(b.n)}">
+  <div class="emojis">${EMOJIS.map(x=>`<button type="button" data-e="${x}" class="${x===b.e?'on':''}">${x}</button>`).join('')}</div>
+  <h3 class="fils-titre">Ce qui m'intéresse</h3><p class="fils-aide">Un onglet entier, ou seulement quelques sous-chapitres.</p>
+  ${Object.entries(D.rubriques).map(([r,ss])=>`<div class="groupe"><button type="button" class="puce puce-r${b.r.includes(r)?' on':''}" data-r="${h(r)}">${h(r)} (tout)</button>${ss.map(s=>`<button type="button" class="puce${b.s.includes(s)?' on':''}" data-s="${h(s)}">${h(s)}</button>`).join('')}</div>`).join('')}
+  <h3 class="fils-titre">Seulement si ça parle de… <small style="font:400 13px system-ui,sans-serif;color:var(--doux)">(facultatif)</small></h3>
+  <div class="groupe">${D.regions.map(g=>`<button type="button" class="puce${b.g.includes(g)?' on':''}" data-g="${h(g)}">${h(g)}</button>`).join('')}</div>
+  <label for="fil-mots">Mots (séparés par des virgules)</label><input type="text" id="fil-mots" placeholder="ex. Poutine, gaz, semences" value="${h(b.m.join(', '))}">
+  <p class="fil-compte" id="fil-compte"></p>
+  <div class="fil-boutons"><button type="button" class="btn-vide" id="fil-annuler">Annuler</button><button type="button" class="btn-plein" id="fil-ok">Enregistrer et ouvrir</button></div>`;
+  const lire=()=>{b.n=document.getElementById('fil-nom').value.trim();
+    b.m=document.getElementById('fil-mots').value.split(',').map(x=>x.trim()).filter(Boolean)};
+  const vide=()=>!b.r.length&&!b.s.length&&!b.g.length&&!b.m.length;
+  const compter=()=>{lire();const n=vide()?0:cartes.filter(c=>!c.dataset.retire&&(!langue||c.dataset.langue===langue)&&dansLeFil(c,b)).length;
+    document.getElementById('fil-compte').textContent=vide()?'Choisissez au moins un sujet.':`→ ${n} article${n>1?'s':''} en ce moment dans ce fil`};
+  corps.querySelectorAll('.puce').forEach(p=>p.onclick=()=>{
+    const [k,v]=p.dataset.r!=null?['r',p.dataset.r]:p.dataset.s!=null?['s',p.dataset.s]:['g',p.dataset.g];
+    const i=b[k].indexOf(v);if(i<0)b[k].push(v);else b[k].splice(i,1);p.classList.toggle('on',i<0);compter()});
+  corps.querySelectorAll('.emojis button').forEach(x=>x.onclick=()=>{b.e=x.dataset.e;
+    corps.querySelectorAll('.emojis button').forEach(y=>y.classList.toggle('on',y===x))});
+  document.getElementById('fil-mots').oninput=compter;
+  document.getElementById('fil-annuler').onclick=vueListe;
+  document.getElementById('fil-ok').onclick=()=>{lire();if(vide()){compter();return}
+    b.n=b.n||'Mon fil';let g=id&&fils.find(x=>x.id===id);
+    if(g)Object.assign(g,b);else{g={...b,id:'f'+Date.now()};fils.push(g)}
+    sauverFils();dlg.close();choisirFil(g)};
+  compter();dlg.scrollTop=0;
+}
+
+/* au démarrage : un lien de fil partagé, sinon le dernier fil utilisé sur cet appareil */
+majBarre();
+const partage=lireLien();
+let depart=partage;
+if(!depart){let id='';try{id=localStorage.getItem('centrale-fil-actif')||''}catch(e){}depart=fils.find(x=>x.id===id)}
+if(depart)choisirFil(depart);
+if(partage&&!filGarde(partage))toast('Fil partagé : touchez « ＋ Garder ce fil » pour le retrouver plus tard');
+addEventListener('hashchange',()=>{const f=lireLien();if(f&&(!fil||cleFil(f)!==cleFil(fil)))choisirFil(f)});
+})();
+</script>
+'''
+
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
 
@@ -924,6 +1066,13 @@ def generer_page(articles, etat_sources):
         + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden>{e(s)}</button>'
                   for s in d["sujets"] if nb_sujet.get(s))
         for r, d in RUBRIQUES.items() if d["sujets"])
+    # « Mes fils » : ce qu'on peut choisir (seulement ce qui a des articles en ce moment)
+    sujets_rub = {r: [s for s in d["sujets"] if nb_sujet.get(s)] for r, d in RUBRIQUES.items() if r in rubriques_pleines}
+    tous_sujets = {s for l in sujets_rub.values() for s in l}
+    prets = [{**f, "r": [r for r in f["r"] if r in sujets_rub], "s": [s for s in f["s"] if s in tous_sujets]}
+             for f in FILS_PRETS]
+    fils_js = json.dumps({"rubriques": sujets_rub, "regions": list(REGIONS),
+                          "prets": [f for f in prets if f["r"] or f["s"]]}, ensure_ascii=False)
     # seules les images réellement présentes dans fonds/ sont proposées
     fonds_js = json.dumps({r: {**f, "images": [i for i in f["images"] if (DOSSIER / "fonds" / i).exists()]}
                            for r, f in FONDS.items()}, ensure_ascii=False)
@@ -992,6 +1141,38 @@ dialog.fiche::backdrop{{background:rgba(10,8,5,.6)}}
 .etiq{{display:inline-block;font:800 10px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-radius:3px;padding:2px 6px;margin-right:8px;vertical-align:1px}}
 .etiq.etabli{{background:#1f7a4d;color:#fff}}.etiq.debattu{{background:#b7791f;color:#fff}}
 #titre-une-faits{{align-self:center}}
+/* Mes fils : la une personnelle du visiteur */
+dialog.fiche{{overflow:auto}}
+.barre-fils{{display:flex;gap:6px}}
+.barre .fil-chip{{font-weight:600}}
+.barre #gerer-fils{{border-color:var(--accent);color:var(--accent);font-weight:700}}
+.barre #gerer-fils:hover{{background:var(--accent);color:#fff}}
+.fil-actions{{display:flex;flex-wrap:wrap;gap:6px;align-self:center}}
+.fil-actions button{{font:600 13px system-ui,sans-serif;cursor:pointer;border-radius:20px;padding:6px 12px;border:1px solid var(--ligne);background:var(--carte);color:var(--texte)}}
+.fil-actions #fil-garder{{background:var(--accent);border-color:var(--accent);color:#fff}}
+.fil-actions button:hover{{border-color:var(--accent)}}
+.fils-titre{{font:800 17px/1.2 Georgia,serif;margin:20px 0 8px}}
+.fils-aide{{color:var(--doux);font-size:13.5px;margin:0 0 8px}}
+.fil-ligne{{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--ligne)}}
+.fil-ouvrir{{flex:1;min-width:0;text-align:left;background:none;border:0;color:var(--texte);cursor:pointer;font:600 15px system-ui,sans-serif;padding:4px 0}}
+.fil-ouvrir small{{display:block;font-weight:400;font-size:12.5px;color:var(--doux);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.mini{{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--ligne);background:var(--fond);color:var(--texte);cursor:pointer;font-size:15px}}
+.mini:hover{{border-color:var(--accent)}}
+.fils-prets{{display:flex;flex-wrap:wrap;gap:8px}}
+.puce{{font:600 13px system-ui,sans-serif;cursor:pointer;border-radius:20px;padding:7px 12px;border:1px solid var(--ligne);background:var(--fond);color:var(--texte)}}
+.puce:hover{{border-color:var(--accent)}}
+.puce.on{{background:var(--accent);border-color:var(--accent);color:#fff}}
+.puce-r{{font-weight:800}}
+.groupe{{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0;border-bottom:1px solid var(--ligne)}}
+.emojis{{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}}
+.emojis button{{font-size:20px;width:42px;height:42px;border-radius:10px;border:1px solid var(--ligne);background:var(--fond);cursor:pointer}}
+.emojis button.on{{border:2px solid var(--accent);background:var(--accent-doux)}}
+#fils-corps input[type=text]{{width:100%;padding:10px 12px;border:1px solid var(--ligne);border-radius:8px;background:var(--fond);color:var(--texte);font:inherit;margin-top:6px}}
+#fils-corps label{{font-weight:700;font-size:14px;display:block;margin-top:14px}}
+.fil-compte{{margin:14px 0 0;font-weight:700;color:var(--accent)}}
+.fil-boutons{{position:sticky;bottom:0;background:var(--carte);display:flex;gap:8px;justify-content:flex-end;padding:12px 0 2px;margin-top:12px;border-top:1px solid var(--ligne)}}
+.btn-plein{{background:var(--accent);color:#fff;border:0;border-radius:22px;padding:10px 20px;font:700 14px system-ui,sans-serif;cursor:pointer}}
+.btn-vide{{background:none;border:1px solid var(--ligne);color:var(--texte);border-radius:22px;padding:10px 18px;font:600 14px system-ui,sans-serif;cursor:pointer}}
 /* Nos publications : un rail de cartes au même format, qu'on fait défiler */
 .nos-pub{{max-width:1240px;margin:24px auto 0;padding:0 20px}}
 .nos-pub .tete{{display:flex;align-items:center;gap:8px;border-bottom:2px solid var(--accent);margin-bottom:14px}}
@@ -1157,11 +1338,14 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <select id="choix-langue" aria-label="Langue"><option value="">🗣 Toutes les langues</option>{options_langues}</select></div></nav>
 <div class="barre">
   <form class="recherche" id="form-recherche" role="search"><input id="recherche" type="search" enterkeyhint="search" placeholder="Rechercher un mot, un sujet…"><button type="submit" aria-label="Rechercher">🔍</button></form>
+  <span class="barre-fils" id="barre-fils"></span>
   {sous_chapitres}
   <button id="ma-selection">★ Ma sélection</button>
   <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
 </div>
-<div class="titre-une" id="titre-une" hidden><h2 id="titre-une-txt"></h2><p id="titre-une-nb"></p><button id="titre-une-faits" hidden>📄 Les faits et les sources</button></div>
+<div class="titre-une" id="titre-une" hidden><h2 id="titre-une-txt"></h2><p id="titre-une-nb"></p><button id="titre-une-faits" hidden>📄 Les faits et les sources</button>
+  <span class="fil-actions" id="fil-actions" hidden><button id="fil-garder">＋ Garder ce fil</button><button id="fil-partager">🔗 Partager</button><button id="fil-modifier">✎ Modifier</button><button id="fil-quitter">✕ Tout voir</button></span></div>
+<dialog class="fiche" id="dlg-fils"><div class="fiche-tete"><h2>✦ Mes fils</h2><button class="fermer" aria-label="Fermer">✕</button></div><div class="fiche-corps" id="fils-corps"></div></dialog>
 <section class="haut" id="bloc-une">
   <div class="carrousel" id="carrousel">
     {"".join(diapo(a, i) for i, a in enumerate(diapos))}
@@ -1182,7 +1366,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   <aside>
     <div class="bloc"><h2>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
     <div class="bloc"><h2>Notre ligne</h2><p style="margin:0 0 10px;color:var(--doux);font-size:14px"><b style="color:var(--texte)">La démocratie participative.</b> Les citoyens n'ont pas besoin d'étiquettes ni d'intermédiaires pour penser : ils ont besoin d'accès aux faits, aux documents et à tous les points de vue, pour décider eux-mêmes.</p>
-    <p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
+    <p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ✦ Mes fils : composez votre propre une, avec seulement les sujets qui vous intéressent. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
   </aside>
 </main>
 <button id="remonter" hidden aria-label="Remonter en haut">↑</button>
@@ -1201,7 +1385,7 @@ majFond('');
 const cartes=[...document.querySelectorAll('#fil .carte')];
 const jours=[...document.querySelectorAll('#fil .jour')];
 const etoiles=document.querySelectorAll('.etoile');
-let theme='',source='',selection=false,region='',rubrique='',sujet='';
+let theme='',source='',selection=false,region='',rubrique='',sujet='',fil=null; /* fil = « Mes fils » actif */
 const PAGE=40;let limite=PAGE; /* nombre d'articles affichés avant « Voir plus » */
 const choixLangue=document.getElementById('choix-langue'),choixRegion=document.getElementById('choix-region');
 let langue='';try{{langue=localStorage.getItem('centrale-langue')||''}}catch(e){{}}
@@ -1289,7 +1473,8 @@ function filtrer(plus){{
   cartes.forEach(c=>{{
     const ok=(!langue||c.dataset.langue===langue)&&(!region||c.dataset.regions.split('|').includes(region))&&(!theme||c.dataset.theme===theme)&&(!source||c.dataset.source===source)
       &&(!rubrique||!!sujet||c.dataset.rubrique===rubrique)&&(!sujet||c.dataset.sujets.split('|').includes(sujet))
-      &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q))&&!c.dataset.retire;
+      &&(!selection||favoris.has(c.dataset.lien))&&(!q||c.textContent.toLowerCase().includes(q))&&!c.dataset.retire
+      &&(!fil||dansLeFil(c,fil));
     if(ok){{n++;trouves.push(c)}}c.hidden=!ok||n>limite;
   }});
   const bPlus=document.getElementById('plus');bPlus.hidden=n<=limite;
@@ -1301,23 +1486,26 @@ function filtrer(plus){{
   // la liste des sources ne montre que celles de la rubrique choisie
   document.querySelectorAll('.sources li').forEach(li=>li.hidden=(!!theme&&li.dataset.theme!==theme)||(!!rubrique&&!sujet&&li.dataset.rubrique!==rubrique));
   {{const ul=document.querySelector('.sources');ul.closest('.bloc').hidden=![...ul.children].some(li=>!li.hidden)}} /* pas de cadre « Les sources » vide (ex. Humour) */
-  const filtre=!!(region||theme||source||selection||q||rubrique);
-  const titre=[rubrique,sujet,region,selection?'Ma sélection':source||(theme&&theme.replace(/^Dossier /,'Dossier : '))].filter(Boolean).join(' · ');
+  const filtre=!!(region||theme||source||selection||q||rubrique||fil);
+  const titre=[fil&&(fil.e+' '+fil.n),rubrique,sujet,region,selection?'Ma sélection':source||(theme&&theme.replace(/^Dossier /,'Dossier : '))].filter(Boolean).join(' · ');
   // pays, onglet, sous-chapitre ou dossier : une « une » propre, comme l'accueil
-  const vueUne=!!(region||rubrique||theme)&&!source&&!selection&&!q&&n>0;
-  const cle=vueUne?[region,rubrique,sujet,theme,langue].join('|'):'';
+  const vueUne=!!(region||rubrique||theme||fil)&&!source&&!selection&&!q&&n>0;
+  const cle=vueUne?[region,rubrique,sujet,theme,langue,fil?JSON.stringify(fil):''].join('|'):'';
   if(cle!==cleUne){{remplirUne(vueUne?trouves:null);cleUne=cle}}
-  document.getElementById('titre-une').hidden=!vueUne;
-  if(vueUne){{document.getElementById('titre-une-txt').textContent=titre;
+  const avecTitre=vueUne||(!!fil&&!source&&!selection&&!q); /* un fil vide garde son titre et ses boutons */
+  document.getElementById('titre-une').hidden=!avecTitre;
+  if(avecTitre){{document.getElementById('titre-une-txt').textContent=titre;
     document.getElementById('titre-une-nb').textContent=`${{n}} article${{n>1?'s':''}} · les plus récents d'abord`}}
   document.getElementById('titre-une-faits').hidden=!(vueUne&&FICHES[theme]);
+  document.getElementById('fil-actions').hidden=!(avecTitre&&fil);
+  if(fil)document.getElementById('fil-garder').hidden=filGarde(fil);
   document.getElementById('bloc-une').hidden=filtre&&!vueUne;
   if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
   if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;(filtre&&!vueUne)?pause():lancer();
   document.getElementById('titre-fil').textContent=q?`${{n}} résultat${{n>1?'s':''}} pour « ${{q}} »`+(titre?' · '+titre:''):titre||'Toutes les publications';
 }}
 /* onglets principaux : un seul actif à la fois */
-function activerOnglet(r){{if(r!==rubrique)majFond(r);rubrique=r;sujet='';
+function activerOnglet(r){{if(fil){{quitterFil();majFond(r)}}else if(r!==rubrique)majFond(r);rubrique=r;sujet='';
   document.querySelectorAll('.onglet[data-rubrique]').forEach(x=>x.classList.toggle('actif',x.dataset.rubrique===r&&!theme));
   document.getElementById('ouvrir-dossiers').classList.toggle('actif',!!theme)}}
 document.querySelectorAll('.filtre-theme').forEach(b=>b.onclick=()=>{{
@@ -1401,7 +1589,7 @@ if(cleAdmin){{
 const haut=document.getElementById('remonter');
 addEventListener('scroll',()=>haut.hidden=scrollY<800,{{passive:true}});haut.onclick=()=>scrollTo({{top:0,behavior:'smooth'}});
 </script>
-''' + PARTAGE + '</body></html>'
+''' + PARTAGE + MES_FILS.replace("__FILS_DONNEES__", fils_js) + '</body></html>'
 
 
 CACHE = DOSSIER / "cache.json"
