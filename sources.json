@@ -68,5 +68,8 @@
   {"nom": "Stéphane Allix", "recherche_youtube": "Stéphane Allix", "theme": "Chamanisme"},
   {"nom": "INREES · Inexploré", "recherche_youtube": "INREES Inexploré", "theme": "Chamanisme"},
   {"nom": "Corine Sombrun", "recherche_youtube": "Corine Sombrun chamanisme", "theme": "Chamanisme"},
-  {"nom": "Laurent Huguelit", "recherche_youtube": "Laurent Huguelit chamanisme", "theme": "Chamanisme"}
+  {"nom": "Laurent Huguelit", "recherche_youtube": "Laurent Huguelit chamanisme", "theme": "Chamanisme"},
+  {"nom": "OffGuardian", "flux": "https://off-guardian.org/feed/", "theme": "Sources internationales"},
+  {"nom": "21st Century Wire", "flux": "https://21stcenturywire.com/feed/", "theme": "Sources internationales"},
+  {"nom": "Reminiscence of the Future...", "flux": "https://smoothiex12.blogspot.com/feeds/posts/default", "theme": "Sources internationales"}
 ]
