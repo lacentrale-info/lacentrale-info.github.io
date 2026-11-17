@@ -291,7 +291,7 @@ async function chargerSources(){
     /* demandes encore dans la boîte */
     let attente=[];try{const rb=await gh('boite');if(rb.ok)attente=(await rb.json()).filter(x=>/-source\.json$/.test(x.name))}catch(e){}
     $('src-rapport').innerHTML=attente.map(()=>`<div class="src-ligne"><div><b>⏳ En cours de vérification…</b><small>le résultat s'affiche ici dans 2 à 5 minutes (touchez « Actualiser »)</small></div></div>`).join('')+
-      (rapport.slice(0,8).map(r=>`<div class="src-ligne"><div><b class="${r.ok?'etat-ok':'etat-ko'}">${r.ok?'✅':'❌'} ${esc(r.nom||r.adresse)}</b><small>${esc(r.message)} · ${new Date(r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</small></div></div>`).join('')
+      (rapport.slice(0,8).map(r=>`<div class="src-ligne"><div><b class="${r.ok?'etat-ok':/^Déjà/.test(r.message)?'':'etat-ko'}">${r.ok?'✅':/^Déjà/.test(r.message)?'ℹ️':'❌'} ${esc(r.nom||r.adresse)}</b><small>${esc(r.message)} · ${new Date(r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</small></div></div>`).join('')
        ||(attente.length?'':'<p class="aide">Aucun ajout pour l\'instant.</p>'))+
       '<button class="second" type="button" id="src-actualiser" style="margin-top:8px">↻ Actualiser</button>';
     $('src-actualiser').onclick=chargerSources;
