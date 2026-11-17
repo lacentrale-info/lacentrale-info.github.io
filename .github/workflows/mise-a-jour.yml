@@ -5,7 +5,7 @@ on:
     - cron: "*/15 * * * *"   # toutes les 15 minutes
   push:
     branches: [main]
-    paths: ["boite/**", "sources.json", "dossiers.json", "*.py", "studio/**", ".github/workflows/**"]
+    paths: ["boite/**", "sources.json", "dossiers.json", "soutien.json", "*.py", "studio/**", ".github/workflows/**"]
   workflow_dispatch:
 
 permissions:
@@ -51,6 +51,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html _site/
+          if [ -f sources-etat.json ]; then cp sources-etat.json _site/; fi
           cp -r studio _site/
           cp -r fonds _site/
           if [ -d documents ]; then cp -r documents _site/; fi

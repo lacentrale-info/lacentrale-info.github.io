@@ -1,0 +1,10 @@
+{
+  "aide": "Onglet « Nous soutenir » : il apparaît sur le site dès qu'un lien ou un IBAN est rempli. liens = boutons (Ko-fi, Liberapay, PayPal…), iban = virement bancaire.",
+  "texte": "La Centrale est indépendante : pas de publicité, pas de subvention, pas d'actionnaire. Chaque jour, nous rassemblons des centaines d'articles, de vidéos et de documents venus de tous les horizons, pour que chacun puisse s'informer à la source et se faire son propre avis. Si ce travail de partage vous est utile, vous pouvez le soutenir, même avec un petit montant.",
+  "liens": [
+    {"nom": "", "url": ""}
+  ],
+  "iban": "",
+  "titulaire": "",
+  "communication": "Soutien La Centrale"
+}

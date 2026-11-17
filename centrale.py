@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-from telephone import en_articles, infos_page, lire_envois, relever_envois, traiter_boite
+from telephone import en_articles, infos_page, lire_envois, premiere_phrase, relever_envois, traiter_boite
 
 DOSSIER = Path(__file__).resolve().parent
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -510,30 +510,68 @@ def articles_de_page(url, motif):
         return [a for a in pool.map(lire, liens[:MAX_PAR_SOURCE]) if a]
 
 
+def articles_telegram(canal):
+    """Canal Telegram public : ses derniers messages, lus sur sa page publique t.me/s/<canal>."""
+    page = telecharger(f"https://t.me/s/{canal}").decode("utf-8", "replace")
+    articles = []
+    for bloc in page.split('<div class="tgme_widget_message_wrap')[1:]:
+        poste = re.search(r'data-post="([^"]+)"', bloc)
+        texte = re.search(r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', bloc, re.S)
+        if not poste or not texte:
+            continue
+        t = html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", texte.group(1)))).strip()
+        if len(t) < 15:
+            continue
+        quand = re.search(r'<time[^>]+datetime="([^"]+)"', bloc)
+        image = re.search(r"tgme_widget_message_(?:photo_wrap|video_thumb)[^>]+background-image:url\('([^']+)'\)", bloc)
+        articles.append({"titre": premiere_phrase(t), "lien": f"https://t.me/{poste.group(1)}",
+                         "resume": texte_brut(t), "image": image.group(1) if image else "",
+                         "date": lire_date(quand.group(1)) if quand else None})
+    return articles[::-1][:MAX_PAR_SOURCE]  # la page montre les plus anciens en premier
+
+
+def relais_google(hote):
+    """Site qui bloque les serveurs de GitHub (ou sans flux) : ses articles récents via Google Actualités."""
+    relais = f"https://news.google.com/rss/search?q=site:{hote}&hl=en-GB&gl=GB&ceid=GB:en"
+    return nettoyer_relais(analyser_flux(telecharger(relais)))
+
+
+def nettoyer_relais(articles):
+    limite = datetime.now(timezone.utc).timestamp() - 45 * 86400
+    propres = []
+    for a in articles:
+        titre = a["titre"].replace(" | Substack", "").rsplit(" - ", 1)[0].strip()
+        if (titre.startswith("Comments -") or "Substack" in titre
+                or not a["date"] or a["date"].timestamp() < limite):
+            continue  # page d'accueil, commentaires ou vieux articles
+        resume = "" if a["resume"].startswith(titre[:40]) else a["resume"]  # Google répète le titre
+        propres.append({**a, "titre": titre, "resume": resume})
+    return propres
+
+
 def recuperer(source):
     try:
         if "recherche_youtube" in source:
             articles = recherche_youtube(source["recherche_youtube"])
+        elif "telegram" in source:
+            articles = articles_telegram(source["telegram"])
         elif "page" in source:
             articles = articles_de_page(source["page"], source["motif"])
         else:
             try:
                 articles = analyser_flux(telecharger(source["flux"]))
+                if "news.google.com/rss/search?q=site:" in source["flux"]:
+                    articles = nettoyer_relais(articles)
             except Exception:
                 chaine = re.search(r"youtube\.com/feeds/videos\.xml\?channel_id=([\w-]+)", source["flux"])
-                substack = re.search(r"https://([\w-]+\.substack\.com)/feed", source["flux"])
+                hote = urllib.parse.urlparse(source["flux"]).netloc.lower().removeprefix("www.")
                 if chaine:
                     articles = videos_youtube(chaine.group(1))
-                elif substack:  # Substack bloque les serveurs de GitHub : relais par Google Actualités
-                    relais = f"https://news.google.com/rss/search?q=site:{substack.group(1)}&hl=en-GB&gl=GB&ceid=GB:en"
-                    limite = datetime.now(timezone.utc).timestamp() - 45 * 86400
-                    articles = []
-                    for a in analyser_flux(telecharger(relais)):
-                        titre = a["titre"].replace(" | Substack", "").rsplit(" - ", 1)[0].strip()
-                        if (titre.startswith("Comments -") or "Substack" in titre
-                                or not a["date"] or a["date"].timestamp() < limite):
-                            continue  # page d'accueil, commentaires ou vieux articles
-                        articles.append({**a, "titre": titre})
+                elif hote and "news.google" not in hote:
+                    # le site bloque les serveurs de GitHub (Substack, Cloudflare…) : relais par Google Actualités
+                    articles = relais_google(hote)
+                    if not articles:
+                        raise
                 else:
                     raise
         for a in articles:
@@ -1066,6 +1104,22 @@ def generer_page(articles, etat_sources):
         + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden>{e(s)}</button>'
                   for s in d["sujets"] if nb_sujet.get(s))
         for r, d in RUBRIQUES.items() if d["sujets"])
+    # « Nous soutenir » (soutien.json) : visible seulement quand un lien de don ou un IBAN est rempli
+    try:
+        soutien = json.loads((DOSSIER / "soutien.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        soutien = {}
+    liens_soutien = [l for l in soutien.get("liens", []) if (l.get("url") or "").startswith("http")]
+    iban = (soutien.get("iban") or "").strip()
+    avec_soutien = bool(liens_soutien or iban)
+    virement = (f'''<div class="virement"><h3>Par virement bancaire</h3>
+  <p>Bénéficiaire : <b>{e(soutien.get("titulaire", ""))}</b><br>IBAN : <b id="iban">{e(iban)}</b> <button class="copier-iban" type="button">Copier</button>
+  <br>Communication : <i>{e(soutien.get("communication", ""))}</i></p></div>''' if iban else "")
+    fenetre_soutien = (f'''<dialog class="fiche" id="dlg-soutien"><div class="fiche-tete"><h2>♥ Soutenir La Centrale</h2><button class="fermer" aria-label="Fermer">✕</button></div>
+  <div class="fiche-corps"><p class="soutien-texte">{e(soutien.get("texte", ""))}</p>
+  <div class="soutien-liens">{"".join(f'<a class="btn-soutien" href="{e(l["url"])}" target="_blank" rel="noopener">♥ {e(l.get("nom") or "Faire un don")}</a>' for l in liens_soutien)}</div>
+  {virement}<p class="soutien-merci">Merci ! Chaque soutien, même petit, aide à garder La Centrale libre et sans publicité.</p></div></dialog>'''
+                       if avec_soutien else "")
     # « Mes fils » : ce qu'on peut choisir (seulement ce qui a des articles en ce moment)
     sujets_rub = {r: [s for s in d["sujets"] if nb_sujet.get(s)] for r, d in RUBRIQUES.items() if r in rubriques_pleines}
     tous_sujets = {s for l in sujets_rub.values() for s in l}
@@ -1141,6 +1195,17 @@ dialog.fiche::backdrop{{background:rgba(10,8,5,.6)}}
 .etiq{{display:inline-block;font:800 10px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-radius:3px;padding:2px 6px;margin-right:8px;vertical-align:1px}}
 .etiq.etabli{{background:#1f7a4d;color:#fff}}.etiq.debattu{{background:#b7791f;color:#fff}}
 #titre-une-faits{{align-self:center}}
+/* Nous soutenir */
+.onglet-soutien{{color:#ff8a7f}}.onglet-soutien:hover{{color:#fff}}
+.bloc-soutien{{border-top:4px solid var(--accent)!important}}
+.bloc-soutien p{{margin:0 0 12px;color:var(--doux);font-size:14px}}
+.bloc-soutien button,.btn-soutien{{display:inline-block;font:700 14px system-ui,sans-serif;cursor:pointer;border:0;border-radius:22px;padding:10px 20px;background:var(--accent);color:#fff;text-decoration:none}}
+.soutien-texte{{font-size:15.5px;line-height:1.6;margin:16px 0}}
+.soutien-liens{{display:flex;flex-wrap:wrap;gap:10px}}
+.virement{{margin-top:16px;padding:12px 16px;border:1px solid var(--ligne);border-radius:10px;background:var(--fond)}}
+.virement h3{{font:700 15px system-ui,sans-serif;margin:0 0 6px}}.virement p{{margin:0;font-size:14.5px;line-height:1.7}}
+.copier-iban{{font:600 12px system-ui,sans-serif;cursor:pointer;border:1px solid var(--ligne);border-radius:14px;padding:2px 10px;background:var(--carte);color:var(--texte)}}
+.soutien-merci{{color:var(--doux);font-size:13.5px;margin:16px 0 0}}
 /* Mes fils : la une personnelle du visiteur */
 dialog.fiche{{overflow:auto}}
 .barre-fils{{display:flex;gap:6px}}
@@ -1333,7 +1398,8 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="">À la une</button>{onglets}
-  <button class="onglet" id="ouvrir-dossiers"{" hidden" if not ordre else ""}>📂 Dossiers</button></div>
+  <button class="onglet" id="ouvrir-dossiers"{" hidden" if not ordre else ""}>📂 Dossiers</button>
+  {'<button class="onglet onglet-soutien ouvrir-soutien">♥ Nous soutenir</button>' if avec_soutien else ""}</div>
   <div class="choix"><select id="choix-region" aria-label="Région"><option value="">🌍 Toutes les régions</option>{options_regions}</select>
   <select id="choix-langue" aria-label="Langue"><option value="">🗣 Toutes les langues</option>{options_langues}</select></div></nav>
 <div class="barre">
@@ -1359,11 +1425,12 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><div class="tete"><h2>Nos publications</h2><button class="rail-btn" data-sens="-1" aria-label="Publications précédentes">‹</button><button class="rail-btn" data-sens="1" aria-label="Publications suivantes">›</button></div>
   <div class="rail" id="rail-pub">{"".join(carte_pub(a) for a in nos_publications)}</div></section>
 <section class="dossiers" id="bloc-dossiers"{" hidden" if not ordre else ""}><h2>Nos dossiers</h2><p class="chapeau">Les sujets suivis de près : les articles parus, et pour certains une fiche qui sépare ce qui est établi de ce qui reste débattu, sources à l'appui.</p><div class="grille-dossiers">{bloc_dossiers}</div></section>
-{"".join(fenetres)}
+{"".join(fenetres)}{fenetre_soutien}
 <main>
   <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
   <p class="vide" id="vide" hidden>Aucun article ne correspond.</p><button class="plus" id="plus" hidden>Voir plus</button></section>
   <aside>
+    {'<div class="bloc bloc-soutien"><h2>Nous soutenir</h2><p>La Centrale est indépendante, sans publicité ni subvention. Si ce travail de partage vous est utile, vous pouvez le soutenir.</p><button class="ouvrir-soutien">♥ Soutenir La Centrale</button></div>' if avec_soutien else ""}
     <div class="bloc"><h2>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
     <div class="bloc"><h2>Notre ligne</h2><p style="margin:0 0 10px;color:var(--doux);font-size:14px"><b style="color:var(--texte)">La démocratie participative.</b> Les citoyens n'ont pas besoin d'étiquettes ni d'intermédiaires pour penser : ils ont besoin d'accès aux faits, aux documents et à tous les points de vue, pour décider eux-mêmes.</p>
     <p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ✦ Mes fils : composez votre propre une, avec seulement les sujets qui vous intéressent. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
@@ -1549,6 +1616,10 @@ document.querySelectorAll('.dos-faits').forEach(b=>b.onclick=()=>ouvrirFiche(b.d
 document.getElementById('titre-une-faits').onclick=()=>ouvrirFiche(FICHES[theme]);
 document.querySelectorAll('dialog.fiche').forEach(d=>{{d.querySelector('.fermer').onclick=()=>d.close();
   d.addEventListener('click',ev=>{{if(ev.target===d)d.close()}})}});  /* clic à côté de la fenêtre : on ferme */
+/* Nous soutenir */
+document.querySelectorAll('.ouvrir-soutien').forEach(b=>b.onclick=()=>document.getElementById('dlg-soutien').showModal());
+document.querySelectorAll('.copier-iban').forEach(b=>b.onclick=async()=>{{
+  try{{await navigator.clipboard.writeText(document.getElementById('iban').textContent.replace(/\\s/g,''));b.textContent='Copié ✓'}}catch(e){{b.textContent='Sélectionnez-le'}}}});
 /* rail « Nos publications » : flèches, cachées s'il n'y a rien à faire défiler */
 const rail=document.getElementById('rail-pub');
 document.querySelectorAll('.rail-btn').forEach(b=>b.onclick=()=>rail.scrollBy({{left:b.dataset.sens*rail.clientWidth*.9,behavior:'smooth'}}));
@@ -1648,6 +1719,10 @@ def construire(articles, etat):
 
     page = DOSSIER / "index.html"
     page.write_text(generer_page(articles, etat), encoding="utf-8")
+    # état de chaque source, lu par le Studio (publié avec le site, pas enregistré dans le dépôt)
+    (DOSSIER / "sources-etat.json").write_text(json.dumps(
+        {"maj": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+         "sources": {s["nom"]: {"n": n, "erreur": err} for s, n, err in etat}}, ensure_ascii=False), encoding="utf-8")
     publique = DOSSIER / "public"  # copie servie par le lien de partage
     if publique.exists():
         (publique / "index.html").write_text(page.read_text(encoding="utf-8"), encoding="utf-8")

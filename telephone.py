@@ -21,6 +21,7 @@ import json
 import mimetypes
 import os
 import re
+import time
 import uuid
 import urllib.parse
 import urllib.request
@@ -395,6 +396,167 @@ def envoyer_document(jeton, canal, chemin, legende):
         raise RuntimeError(rep.get("description", "erreur Telegram"))
 
 
+# ---------- Sources ajoutées depuis le Studio (à distance) ----------
+SOURCES = DOSSIER / "sources.json"
+RAPPORT = DOSSIER / "sources-rapport.json"  # résultat des derniers ajouts/retraits, affiché dans le Studio
+
+
+def ecrire_sources(sources):
+    """Même mise en forme que le fichier écrit à la main : une source par ligne."""
+    SOURCES.write_text("[\n" + ",\n".join("  " + json.dumps(s, ensure_ascii=False) for s in sources) + "\n]\n",
+                       encoding="utf-8")
+
+
+def noter(adresse, ok, message, nom=""):
+    rapport = lire_json(RAPPORT, [])
+    rapport.insert(0, {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                       "adresse": adresse, "nom": nom, "ok": ok, "message": message})
+    ecrire_json(RAPPORT, rapport[:30])
+
+
+def nom_de_page(page, defaut):
+    for motif in (r'<meta[^>]+property=["\']og:site_name["\'][^>]+content=["\']([^"\']+)',
+                  r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:site_name',
+                  r"<title[^>]*>([^<]+)</title>"):
+        m = re.search(motif, page, re.I)
+        if m:
+            nom = re.split(r"\s+[|–—-]\s+", html.unescape(m.group(1)).strip())[0].strip()
+            if 2 <= len(nom) <= 60:
+                return nom
+    return defaut
+
+
+def chercher_source(adresse, theme, nom=""):
+    """Trouve tout seul comment lire une source à partir d'une simple adresse (site, blog, Substack,
+    chaîne YouTube, canal Telegram public) ou d'un nom de personne (ses dernières vidéos YouTube).
+    Renvoie (source, nombre d'articles lus) ou lève ValueError avec une explication."""
+    from centrale import analyser_flux, recuperer, relais_google, telecharger
+    adresse = adresse.strip().rstrip("/")
+    lire_page = lambda u: telecharger(u).decode("utf-8", "replace")
+
+    def essayer(source):
+        s, articles, erreur = recuperer(source)
+        return len(articles) if not erreur and articles else 0
+
+    if not re.match(r"https?://", adresse):
+        if re.match(r"^[\w.-]+\.[a-z]{2,}(/\S*)?$", adresse, re.I):
+            adresse = "https://" + adresse
+        else:  # un nom de personne : ses vidéos récentes sur YouTube
+            source = {"nom": nom or adresse, "recherche_youtube": adresse, "theme": theme}
+            n = essayer(source)
+            if not n:
+                raise ValueError("aucune vidéo trouvée sur YouTube pour ce nom")
+            return source, n
+
+    url = urllib.parse.urlparse(adresse)
+    hote = url.netloc.lower().removeprefix("www.").removeprefix("m.")
+
+    if hote in ("t.me", "telegram.me"):  # canal Telegram public
+        morceaux = [m for m in url.path.split("/") if m and m != "s"]
+        if not morceaux:
+            raise ValueError("adresse de canal Telegram incomplète")
+        source = {"nom": nom or morceaux[0], "telegram": morceaux[0], "theme": theme}
+        try:
+            titre = re.search(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"', lire_page(f"https://t.me/s/{morceaux[0]}"))
+            source["nom"] = nom or (html.unescape(titre.group(1)).strip() if titre else morceaux[0])
+        except Exception:
+            pass
+        n = essayer(source)
+        if not n:
+            raise ValueError("canal Telegram introuvable ou privé (seuls les canaux publics sont lisibles)")
+        return source, n
+
+    if hote.endswith("youtube.com") or hote == "youtu.be":
+        m = re.search(r"/channel/(UC[\w-]{22})", adresse)
+        page = ""
+        if not m:
+            page = lire_page(adresse)
+            m = (re.search(r'"externalId":"(UC[\w-]{22})"', page) or re.search(r'"channelId":"(UC[\w-]{22})"', page)
+                 or re.search(r"youtube\.com/channel/(UC[\w-]{22})", page))
+        if not m:
+            raise ValueError("chaîne YouTube introuvable : collez l'adresse de la chaîne (youtube.com/@…)")
+        if not page:
+            try:
+                page = lire_page(f"https://www.youtube.com/channel/{m.group(1)}")
+            except Exception:
+                page = ""
+        titre = re.search(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"', page)
+        source = {"nom": nom or (html.unescape(titre.group(1)) if titre else hote),
+                  "flux": f"https://www.youtube.com/feeds/videos.xml?channel_id={m.group(1)}", "theme": theme}
+        n = essayer(source)
+        if not n:
+            raise ValueError("la chaîne YouTube ne donne aucune vidéo")
+        return source, n
+
+    # site ou blog : on cherche son flux RSS (annoncé dans la page, puis aux adresses habituelles)
+    base = f"{url.scheme}://{url.netloc}"
+    candidats, page = [], ""
+    if hote.endswith(".substack.com"):
+        candidats.append(f"{base}/feed")
+    try:
+        page = lire_page(adresse)
+        for balise in re.findall(r"<link[^>]+application/(?:rss|atom)\+xml[^>]*>", page, re.I):
+            href = re.search(r'href=["\']([^"\']+)', balise)
+            if href and "comment" not in href.group(1).lower():
+                candidats.append(urllib.parse.urljoin(adresse + "/", html.unescape(href.group(1))))
+    except Exception:
+        pass  # page bloquée : on essaie quand même les adresses habituelles
+    if hote.endswith(".blogspot.com"):
+        candidats.append(f"{base}/feeds/posts/default")
+    candidats += [f"{base}/{c}" for c in ("feed/", "feed", "rss", "rss.xml", "feed.xml", "atom.xml", "index.xml")]
+    nom = nom or nom_de_page(page, hote)
+    candidats = list(dict.fromkeys(candidats))
+    for essai, liste in enumerate((candidats, candidats[:4])):  # 2e passage : le site a pu refuser un instant
+        if essai:
+            time.sleep(4)
+        for flux in liste:
+            try:
+                if analyser_flux(telecharger(flux)):
+                    source = {"nom": nom, "flux": flux, "theme": theme}
+                    n = essayer(source)
+                    if n:
+                        return source, n
+            except Exception:
+                continue
+    # aucun flux lisible d'ici : relais par Google Actualités
+    try:
+        if len(relais_google(hote)) >= 2:
+            source = {"nom": nom, "flux": f"https://news.google.com/rss/search?q=site:{hote}&hl=en-GB&gl=GB&ceid=GB:en",
+                      "theme": theme}
+            return source, essayer(source)
+    except Exception:
+        pass
+    raise ValueError("aucun flux d'articles trouvé (le site bloque peut-être les robots)")
+
+
+def ajouter_source(demande):
+    adresse, theme = (demande.get("adresse") or "").strip(), (demande.get("theme") or "Divers").strip()
+    if not adresse:
+        return
+    sources = lire_json(SOURCES, [])
+    try:
+        source, n = chercher_source(adresse, theme, (demande.get("nom") or "").strip())
+    except Exception as e:
+        noter(adresse, False, f"Pas ajoutée : {e}.")
+        return
+    cle = lambda s: s.get("flux") or s.get("page") or s.get("telegram") or s.get("recherche_youtube")
+    deja = next((s for s in sources if cle(s) == cle(source) or s["nom"].lower() == source["nom"].lower()), None)
+    if deja:
+        noter(adresse, False, f"Déjà présente sous le nom « {deja['nom']} ».", deja["nom"])
+        return
+    sources.append(source)
+    ecrire_sources(sources)
+    noter(adresse, True, f"Ajoutée : {n} article{'s' if n > 1 else ''} trouvé{'s' if n > 1 else ''}.", source["nom"])
+
+
+def retirer_source(nom):
+    sources = lire_json(SOURCES, [])
+    restantes = [s for s in sources if s["nom"] != nom]
+    if len(restantes) < len(sources):
+        ecrire_sources(restantes)
+        noter(nom, True, "Retirée du site.", nom)
+
+
 def traiter_boite():
     """Publications déposées par le Studio en ligne dans boite/ (un fichier .json par action)."""
     if not BOITE.exists():
@@ -411,6 +573,10 @@ def traiter_boite():
                                    "source": demande.get("source", ""),
                                    "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
                 ecrire_json(MASQUES, masques)
+            elif demande.get("type") == "source":  # nouvelle source envoyée depuis le Studio
+                ajouter_source(demande)
+            elif demande.get("type") == "retirer-source":
+                retirer_source(demande.get("nom", ""))
             elif demande.get("type") == "remettre":
                 ecrire_json(MASQUES, [m for m in lire_json(MASQUES, []) if m["lien"] != demande["lien"]])
             else:

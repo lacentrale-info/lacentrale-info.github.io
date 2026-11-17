@@ -62,6 +62,18 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
 .ou{text-align:center;color:var(--doux);font-size:13px;margin:10px 0 0}
 #sat-canvas{display:block;width:100%;margin-top:14px;border-radius:10px;touch-action:none;cursor:grab;background:#000}
 [hidden]{display:none!important}
+#sources{margin-top:12px}
+#sources[open] .titre-satire{border-radius:10px 10px 0 0}
+#sources .etapes{border-radius:0 0 12px 12px;border-top:0}
+select{width:100%;padding:12px;border:1px solid var(--ligne);border-radius:10px;background:var(--carte);color:var(--texte);font:inherit}
+.sous-titre{font:700 15px system-ui,sans-serif;margin:22px 0 6px}
+.src-ligne{display:flex;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--ligne)}
+.src-ligne div{flex:1;min-width:0}
+.src-ligne b{display:block;font-weight:600;overflow-wrap:anywhere}
+.src-ligne small{color:var(--doux);font-size:13px;overflow-wrap:anywhere}
+.src-ligne button{padding:6px 10px;font-size:13px}
+.etat-ok{color:var(--ok)}.etat-ko{color:var(--accent)}
+#src-filtre{margin-bottom:4px}
 </style></head><body>
 <header><h1>Le <span>Studio</span></h1>
   <nav><a href="../" target="_blank">Voir le site ↗</a><button id="btn-reglages" type="button">⚙</button></nav></header>
@@ -125,6 +137,23 @@ h2{font:700 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.1
   <label class="case"><input type="checkbox" id="sat-telegram" checked> Publier aussi sur le canal Telegram (s'il est configuré)</label>
   <button id="sat-publier" type="button" style="width:100%">✅ Valider et publier dans « Humour »</button>
   <div class="message" id="sat-message" hidden></div>
+</div></details>
+<details id="sources"><summary class="titre-satire">📡 Mes sources (ajouter un site, une chaîne, un canal…)</summary>
+<div class="etapes">
+  <p class="aide">Collez l'adresse d'un <b>site</b>, d'un <b>blog</b>, d'un <b>Substack</b>, d'une <b>chaîne YouTube</b> ou d'un <b>canal Telegram public</b>, ou le <b>nom d'une personne</b> (ses dernières vidéos sur YouTube). Le Studio trouve tout seul comment lire ses articles. Plusieurs à la fois : une par ligne.</p>
+  <label for="src-adresse">Adresses ou noms</label>
+  <textarea id="src-adresse" style="min-height:80px" placeholder="sonar21.com&#10;youtube.com/@…&#10;t.me/…"></textarea>
+  <label for="src-theme">Rubrique</label>
+  <select id="src-theme"></select>
+  <label for="src-nom">Nom affiché (facultatif, pour une seule adresse)</label>
+  <input id="src-nom" type="text" placeholder="Trouvé automatiquement">
+  <button id="src-ajouter" type="button" style="width:100%;margin-top:12px">＋ Ajouter</button>
+  <div class="message" id="src-message" hidden></div>
+  <h3 class="sous-titre">Derniers ajouts</h3>
+  <div id="src-rapport"><p class="aide">Chargement…</p></div>
+  <h3 class="sous-titre">Toutes les sources <span id="src-nb"></span></h3>
+  <input id="src-filtre" type="text" placeholder="🔍 Chercher une source…">
+  <div id="src-liste"><p class="aide">Chargement…</p></div>
 </div></details>
 <h2>Mes publications</h2>
 <div id="liste"><p style="color:var(--doux)">Chargement…</p></div>
@@ -231,7 +260,7 @@ async function charger(){
   try{
     const [rp,rb]=await Promise.all([gh('envois.json',{headers:{'Accept':'application/vnd.github.raw+json'}}),gh('boite')]);
     const pubs=rp.ok?await rp.json():[];const attente=rb.ok?(await rb.json()).filter(x=>x.name.endsWith('.json')):[];
-    const html=attente.map(x=>`<div class="pub"><div><b>⏳ Publication en cours de traitement…</b><small>apparaîtra sur le site dans quelques minutes</small></div></div>`).join('')+
+    const html=attente.filter(x=>!/-source\.json$/.test(x.name)).map(x=>`<div class="pub"><div><b>⏳ Demande en cours de traitement…</b><small>visible sur le site dans quelques minutes</small></div></div>`).join('')+
       pubs.slice(0,40).map(p=>{
         const lien=p.lien.startsWith('documents/')?'../'+p.lien:p.lien.startsWith('#')?'../'+p.lien:p.lien;
         return `<div class="pub"><div><b>${esc(p.titre)}</b><small>${esc(p.site||'')} · ${new Date(p.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}${p.publie?' · ✈ Telegram':''}</small></div>
@@ -244,8 +273,60 @@ async function charger(){
       try{await deposer('boite/'+horodatage()+'-retrait.json',enBase64Texte(JSON.stringify({type:'suppression',lien:b.dataset.lien})),'Studio : retrait');
         b.textContent='Retrait demandé'}catch(e){b.textContent='Échec'}});
   }catch(e){$('liste').innerHTML='<p class="message erreur">⚠️ '+esc(e.message)+'</p>'}
-  chargerRetires();
+  chargerRetires();chargerSources();
 }
+/* ===== Sources : ajout à distance (le robot du site trouve le flux et vérifie qu'il marche) ===== */
+let toutesSources=[],etatSources={};
+const RUBRIQUE_PAR_DEFAUT='Sources internationales';
+async function chargerSources(){
+  try{
+    const [rs,rr]=await Promise.all([gh('sources.json',{headers:{'Accept':'application/vnd.github.raw+json'}}),
+      gh('sources-rapport.json',{headers:{'Accept':'application/vnd.github.raw+json'}})]);
+    toutesSources=rs.ok?await rs.json():[];const rapport=rr.ok?await rr.json():[];
+    try{etatSources=(await (await fetch('../sources-etat.json?'+Date.now())).json()).sources||{}}catch(e){etatSources={}}
+    /* rubriques : celles déjà utilisées par les sources */
+    const sel=$('src-theme'),avant=sel.value;
+    const themes=[...new Set(toutesSources.map(s=>s.theme).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+    sel.innerHTML=themes.map(t=>`<option${t===(avant||RUBRIQUE_PAR_DEFAUT)?' selected':''}>${esc(t)}</option>`).join('');
+    /* demandes encore dans la boîte */
+    let attente=[];try{const rb=await gh('boite');if(rb.ok)attente=(await rb.json()).filter(x=>/-source\.json$/.test(x.name))}catch(e){}
+    $('src-rapport').innerHTML=attente.map(()=>`<div class="src-ligne"><div><b>⏳ En cours de vérification…</b><small>le résultat s'affiche ici dans 2 à 5 minutes (touchez « Actualiser »)</small></div></div>`).join('')+
+      (rapport.slice(0,8).map(r=>`<div class="src-ligne"><div><b class="${r.ok?'etat-ok':'etat-ko'}">${r.ok?'✅':'❌'} ${esc(r.nom||r.adresse)}</b><small>${esc(r.message)} · ${new Date(r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</small></div></div>`).join('')
+       ||(attente.length?'':'<p class="aide">Aucun ajout pour l\'instant.</p>'))+
+      '<button class="second" type="button" id="src-actualiser" style="margin-top:8px">↻ Actualiser</button>';
+    $('src-actualiser').onclick=chargerSources;
+    afficherSources();
+  }catch(e){$('src-liste').innerHTML='<p class="message erreur">⚠️ '+esc(e.message)+'</p>'}
+}
+function afficherSources(){
+  const q=$('src-filtre').value.toLowerCase().trim();
+  const liste=toutesSources.filter(s=>!q||(s.nom+' '+s.theme).toLowerCase().includes(q));
+  $('src-nb').textContent='('+toutesSources.length+')';
+  $('src-liste').innerHTML=liste.map(s=>{const e=etatSources[s.nom];
+    const etat=!e?'':e.erreur?`<span class="etat-ko">⚠️ hors ligne</span>`:`<span class="etat-ok">✓ ${e.n} article${e.n>1?'s':''}</span>`;
+    return `<div class="src-ligne"><div><b>${esc(s.nom)}</b><small>${esc(s.theme||'')}${etat?' · ':''}${etat}</small></div>
+      <button class="second" type="button" data-retirer-source="${esc(s.nom)}">Retirer</button></div>`}).join('')||'<p class="aide">Aucune source trouvée.</p>';
+  document.querySelectorAll('[data-retirer-source]').forEach(b=>b.onclick=async()=>{
+    if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmer ?';return}
+    b.disabled=true;b.textContent='…';
+    try{await deposer('boite/'+horodatage()+'-retrait-source.json',enBase64Texte(JSON.stringify({type:'retirer-source',nom:b.dataset.retirerSource})),'Studio : source retirée');
+      b.textContent='Retrait demandé'}catch(e){b.disabled=false;b.textContent='Échec'}});
+}
+$('src-filtre').oninput=afficherSources;
+$('src-ajouter').onclick=async()=>{
+  const m=$('src-message'),b=$('src-ajouter');
+  const adresses=$('src-adresse').value.split(/[\n,;]+|\s{2,}|\s+(?=\S*\.\S)/).map(x=>x.trim()).filter(Boolean);
+  if(!adresses.length){m.className='message erreur';m.textContent='⚠️ Collez au moins une adresse ou un nom.';m.hidden=false;return}
+  b.disabled=true;b.textContent='Envoi…';
+  try{
+    for(const [i,a] of adresses.entries()){
+      await deposer('boite/'+horodatage()+'-'+i+'-source.json',enBase64Texte(JSON.stringify({type:'source',adresse:a,theme:$('src-theme').value,
+        nom:adresses.length===1?$('src-nom').value.trim():''})),'Studio : nouvelle source')}
+    m.className='message';m.textContent=`✅ ${adresses.length>1?adresses.length+' sources envoyées':'Source envoyée'}. Le robot du site cherche comment ${adresses.length>1?'les':'la'} lire et vérifie que ça marche : résultat dans « Derniers ajouts » d'ici 2 à 5 minutes.`;
+    $('src-adresse').value='';$('src-nom').value='';chargerSources();
+  }catch(err){m.className='message erreur';m.textContent='⚠️ '+err.message}
+  m.hidden=false;b.disabled=false;b.textContent='＋ Ajouter';
+};
 async function chargerRetires(){
   try{
     const r=await gh('masques.json',{headers:{'Accept':'application/vnd.github.raw+json'}});
