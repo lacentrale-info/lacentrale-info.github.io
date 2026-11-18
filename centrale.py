@@ -1117,9 +1117,18 @@ def generer_page(articles, etat_sources):
   <br>Communication : <i>{e(soutien.get("communication", ""))}</i></p></div>''' if iban else "")
     fenetre_soutien = (f'''<dialog class="fiche" id="dlg-soutien"><div class="fiche-tete"><h2>♥ Soutenir La Centrale</h2><button class="fermer" aria-label="Fermer">✕</button></div>
   <div class="fiche-corps"><p class="soutien-texte">{e(soutien.get("texte", ""))}</p>
+  {f'<div class="philosophie"><h3>Notre principe : rétribuer l’information indépendante</h3><p>{e(soutien["philosophie"])}</p></div>' if soutien.get("philosophie") else ""}
   <div class="soutien-liens">{"".join(f'<a class="btn-soutien" href="{e(l["url"])}" target="_blank" rel="noopener">♥ {e(l.get("nom") or "Faire un don")}</a>' for l in liens_soutien)}</div>
   {virement}<p class="soutien-merci">Merci ! Chaque soutien, même petit, aide à garder La Centrale libre et sans publicité.</p></div></dialog>'''
                        if avec_soutien else "")
+    # compteur de visiteurs anonyme (GoatCounter : ni cookie, ni adresse IP conservée), réglé dans site.json
+    try:
+        reglages_site = json.loads((DOSSIER / "site.json").read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        reglages_site = {}
+    gc = re.sub(r"[^a-z0-9-]", "", (reglages_site.get("goatcounter") or "").lower())
+    script_compteur = (f'<script data-goatcounter="https://{gc}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>'
+                       if gc else "")
     # « Mes fils » : ce qu'on peut choisir (seulement ce qui a des articles en ce moment)
     sujets_rub = {r: [s for s in d["sujets"] if nb_sujet.get(s)] for r, d in RUBRIQUES.items() if r in rubriques_pleines}
     tous_sujets = {s for l in sujets_rub.values() for s in l}
@@ -1202,6 +1211,8 @@ dialog.fiche::backdrop{{background:rgba(10,8,5,.6)}}
 .bloc-soutien button,.btn-soutien{{display:inline-block;font:700 14px system-ui,sans-serif;cursor:pointer;border:0;border-radius:22px;padding:10px 20px;background:var(--accent);color:#fff;text-decoration:none}}
 .soutien-texte{{font-size:15.5px;line-height:1.6;margin:16px 0}}
 .soutien-liens{{display:flex;flex-wrap:wrap;gap:10px}}
+.philosophie{{border-left:4px solid var(--accent);background:var(--accent-doux);border-radius:0 10px 10px 0;padding:10px 16px;margin:0 0 18px}}
+.philosophie h3{{font:700 15px/1.3 Georgia,serif;margin:0 0 6px}}.philosophie p{{margin:0;font-size:14.5px;line-height:1.6}}
 .virement{{margin-top:16px;padding:12px 16px;border:1px solid var(--ligne);border-radius:10px;background:var(--fond)}}
 .virement h3{{font:700 15px system-ui,sans-serif;margin:0 0 6px}}.virement p{{margin:0;font-size:14.5px;line-height:1.7}}
 .copier-iban{{font:600 12px system-ui,sans-serif;cursor:pointer;border:1px solid var(--ligne);border-radius:14px;padding:2px 10px;background:var(--carte);color:var(--texte)}}
@@ -1393,9 +1404,10 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 @media (max-width:1499px){{#fond .fg,#fond .fd{{display:none}}}}
 @media (prefers-color-scheme:dark){{#fond .fg,#fond .fd{{opacity:.32}}#fond::before{{opacity:.05}}}}
 .credits{{display:block;margin-top:6px;font-size:11px;opacity:.8}}
-</style></head><body><div id="fond" aria-hidden="true"><div class="fg"></div><div class="fd"></div></div>
+.visites{{display:inline-block;margin-left:8px;opacity:.9}}
+</style>{script_compteur}</head><body><div id="fond" aria-hidden="true"><div class="fg"></div><div class="fd"></div></div>
 <header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
-<p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}</p></div></header>
+<p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}<span class="visites" id="visites" hidden></span></p></div></header>
 <div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="">À la une</button>{onglets}
   <button class="onglet" id="ouvrir-dossiers"{" hidden" if not ordre else ""}>📂 Dossiers</button>
@@ -1437,7 +1449,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   </aside>
 </main>
 <button id="remonter" hidden aria-label="Remonter en haut">↑</button>
-<footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources<span class="credits">{e(credits_fonds())}</span></footer>
+<footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources<span class="credits">{e(credits_fonds())}</span>{'<span class="credits">Mesure d’audience anonyme (<a href="https://www.goatcounter.com" target="_blank" rel="noopener" style="color:inherit">GoatCounter</a>, logiciel libre) : aucun cookie, aucune adresse IP conservée, aucune donnée personnelle.</span>' if gc else ""}</footer>
 <script>
 /* images de fond : deux images tirées au hasard dans la liste de la rubrique */
 const FONDS={fonds_js},POS_FONDS={json.dumps(POSITIONS_FONDS)};
@@ -1616,6 +1628,11 @@ document.querySelectorAll('.dos-faits').forEach(b=>b.onclick=()=>ouvrirFiche(b.d
 document.getElementById('titre-une-faits').onclick=()=>ouvrirFiche(FICHES[theme]);
 document.querySelectorAll('dialog.fiche').forEach(d=>{{d.querySelector('.fermer').onclick=()=>d.close();
   d.addEventListener('click',ev=>{{if(ev.target===d)d.close()}})}});  /* clic à côté de la fenêtre : on ferme */
+/* compteur de visiteurs (total anonyme publié par GoatCounter) */
+const GC={json.dumps(gc)};
+if(GC)fetch('https://'+GC+'.goatcounter.com/counter/TOTAL.json').then(r=>r.ok?r.json():null).then(d=>{{
+  if(!d||!d.count)return;const v=document.getElementById('visites');
+  v.textContent='· 👁 '+String(d.count).replace(/[,.\\s]/g,' ')+' visiteurs';v.title='Nombre total de visiteurs, compté de façon anonyme';v.hidden=false}}).catch(()=>{{}});
 /* Nous soutenir */
 document.querySelectorAll('.ouvrir-soutien').forEach(b=>b.onclick=()=>document.getElementById('dlg-soutien').showModal());
 document.querySelectorAll('.copier-iban').forEach(b=>b.onclick=async()=>{{

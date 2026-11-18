@@ -5,7 +5,7 @@ on:
     - cron: "*/15 * * * *"   # toutes les 15 minutes
   push:
     branches: [main]
-    paths: ["boite/**", "sources.json", "dossiers.json", "soutien.json", "*.py", "studio/**", ".github/workflows/**"]
+    paths: ["boite/**", "sources.json", "dossiers.json", "soutien.json", "site.json", "*.py", "studio/**", ".github/workflows/**"]
   workflow_dispatch:
 
 permissions:
