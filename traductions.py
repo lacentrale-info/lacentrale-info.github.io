@@ -48,9 +48,6 @@ T = {
     "Hier": ("Yesterday", "Ayer", "Gisteren"),
     "Date inconnue": ("Unknown date", "Fecha desconocida", "Onbekende datum"),
     "à l'instant": ("just now", "ahora mismo", "zonet"),
-    "· 👁 {n} visiteurs": ("· 👁 {n} visitors", "· 👁 {n} visitantes", "· 👁 {n} bezoekers"),
-    "Nombre total de visiteurs, compté de façon anonyme": ("Total number of visitors, counted anonymously",
-        "Número total de visitantes, contado de forma anónima", "Totaal aantal bezoekers, anoniem geteld"),
 
     # --- colonne de droite et pied de page ---
     "Les sources": ("Sources", "Las fuentes", "De bronnen"),
@@ -66,11 +63,6 @@ T = {
          "Elke kop verwijst naar het oorspronkelijke artikel. Lees, vergelijk, ga terug naar de documenten: oordeel zelf. ✦ Mijn feeds: stel je eigen voorpagina samen met enkel de onderwerpen die je interesseren. ☆ bewaart een artikel in je selectie, ✈ plaatst het op Telegram, ▣ maakt een Instagram-afbeelding."),
     "articles de": ("articles from", "artículos de", "artikels van"),
     "sources": ("sources", "fuentes", "bronnen"),
-    "Mesure d’audience anonyme": ("Anonymous audience measurement", "Medición de audiencia anónima", "Anonieme bezoekersmeting"),
-    "logiciel libre": ("free software", "software libre", "vrije software"),
-    "aucun cookie, aucune adresse IP conservée, aucune donnée personnelle.": (
-        "no cookies, no IP addresses kept, no personal data.", "sin cookies, sin guardar direcciones IP, sin datos personales.",
-        "geen cookies, geen IP-adressen bewaard, geen persoonsgegevens."),
 
     # --- rubriques (onglets) ---
     "Géopolitique": ("Geopolitics", "Geopolítica", "Geopolitiek"),

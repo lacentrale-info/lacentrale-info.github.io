@@ -1147,20 +1147,12 @@ def generer_page(articles, etat_sources):
   <div class="soutien-liens">{"".join(f'<a class="btn-soutien" href="{e(l["url"])}" target="_blank" rel="noopener">♥ <span{"" if l.get("nom") else " data-t"}>{e(l.get("nom") or "Faire un don")}</span></a>' for l in liens_soutien)}</div>
   {virement}<p class="soutien-merci" data-t>Merci ! Chaque soutien, même petit, aide à garder La Centrale libre et sans publicité.</p></div></dialog>'''
                        if avec_soutien else "")
-    # compteur de visiteurs anonyme (GoatCounter : ni cookie, ni adresse IP conservée), réglé dans site.json
-    try:
-        reglages_site = json.loads((DOSSIER / "site.json").read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        reglages_site = {}
-    gc = re.sub(r"[^a-z0-9-]", "", (reglages_site.get("goatcounter") or "").lower())
     # dictionnaire des traductions (+ textes de soutien.json traduits dans ce même fichier)
     extra = {}
     for cle in ("texte", "philosophie"):
         if soutien.get(cle):
             extra[soutien[cle]] = {l: v.get(cle, "") for l, v in (soutien.get("traductions") or {}).items()}
     i18n_tete = I18N_TETE.replace("__TR__", json.dumps(dictionnaire(extra), ensure_ascii=False))
-    script_compteur = (f'<script data-goatcounter="https://{gc}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>'
-                       if gc else "")
     # « Mes fils » : ce qu'on peut choisir (seulement ce qui a des articles en ce moment)
     sujets_rub = {r: [s for s in d["sujets"] if nb_sujet.get(s)] for r, d in RUBRIQUES.items() if r in rubriques_pleines}
     tous_sujets = {s for l in sujets_rub.values() for s in l}
@@ -1439,10 +1431,9 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 .credits{{display:block;margin-top:6px;font-size:11px;opacity:.8}}
 .ligne-texte{{color:var(--doux);font-size:14px}}.ligne-texte b{{color:var(--texte)}}
 .choix-ui{{font:600 12px system-ui,sans-serif;color:#ece7dd;background:#211f19;border:1px solid #555;border-radius:20px;padding:4px 8px;cursor:pointer}}
-.visites{{display:inline-block;margin-left:8px;opacity:.9}}
-</style>{script_compteur}</head><body><div id="fond" aria-hidden="true"><div class="fg"></div><div class="fd"></div></div>
+</style></head><body><div id="fond" aria-hidden="true"><div class="fg"></div><div class="fd"></div></div>
 <header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p data-t>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
-<p class="maj"><span class="compteur">{recents} <span data-t>nouvelles publications en 24 h</span></span> <span data-t>Mis à jour le</span> <span id="maj-date" data-ts="{int(maintenant.timestamp())}">{date_affichee(maintenant)}</span><span class="visites" id="visites" hidden></span></p></div>
+<p class="maj"><span class="compteur">{recents} <span data-t>nouvelles publications en 24 h</span></span> <span data-t>Mis à jour le</span> <span id="maj-date" data-ts="{int(maintenant.timestamp())}">{date_affichee(maintenant)}</span></p></div>
   <select id="choix-ui" class="choix-ui" aria-label="Langue du site" data-ta>{"".join(f'<option value="{c}">{c.upper()} · {n}</option>' for c, n in LANGUES_UI.items())}</select></header>
 <div class="bandeau"><span class="direct" data-t>EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="" data-t>À la une</button>{onglets}
@@ -1485,7 +1476,7 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
   </aside>
 </main>
 <button id="remonter" hidden aria-label="Remonter en haut">↑</button>
-<footer>La Centrale · {len(articles)} <span data-t>articles de</span> {sum(1 for _, _, err in etat_sources if not err)} <span data-t>sources</span><span class="credits">{e(credits_fonds())}</span>{'<span class="credits"><span data-t>Mesure d’audience anonyme</span> (<a href="https://www.goatcounter.com" target="_blank" rel="noopener" style="color:inherit">GoatCounter</a>, <span data-t>logiciel libre</span>) : <span data-t>aucun cookie, aucune adresse IP conservée, aucune donnée personnelle.</span></span>' if gc else ""}</footer>
+<footer>La Centrale · {len(articles)} <span data-t>articles de</span> {sum(1 for _, _, err in etat_sources if not err)} <span data-t>sources</span><span class="credits">{e(credits_fonds())}</span></footer>
 <script>
 /* images de fond : deux images tirées au hasard dans la liste de la rubrique */
 const FONDS={fonds_js},POS_FONDS={json.dumps(POSITIONS_FONDS)};
@@ -1680,11 +1671,6 @@ document.querySelectorAll('.dos-faits').forEach(b=>b.onclick=()=>ouvrirFiche(b.d
 document.getElementById('titre-une-faits').onclick=()=>ouvrirFiche(FICHES[theme]);
 document.querySelectorAll('dialog.fiche').forEach(d=>{{d.querySelector('.fermer').onclick=()=>d.close();
   d.addEventListener('click',ev=>{{if(ev.target===d)d.close()}})}});  /* clic à côté de la fenêtre : on ferme */
-/* compteur de visiteurs (total anonyme publié par GoatCounter) */
-const GC={json.dumps(gc)};
-if(GC)fetch('https://'+GC+'.goatcounter.com/counter/TOTAL.json').then(r=>r.ok?r.json():null).then(d=>{{
-  if(!d||!d.count)return;const v=document.getElementById('visites');
-  v.textContent=t('· 👁 {{n}} visiteurs',{{n:String(d.count).replace(/[,.\\s]/g,' ')}});v.title=t('Nombre total de visiteurs, compté de façon anonyme');v.hidden=false}}).catch(()=>{{}});
 /* Nous soutenir */
 document.querySelectorAll('.ouvrir-soutien').forEach(b=>b.onclick=()=>document.getElementById('dlg-soutien').showModal());
 document.querySelectorAll('.copier-iban').forEach(b=>b.onclick=async()=>{{
