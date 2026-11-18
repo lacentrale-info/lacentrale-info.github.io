@@ -1231,6 +1231,7 @@ dialog.fiche::backdrop{{background:rgba(10,8,5,.6)}}
 #titre-une-faits{{align-self:center}}
 /* Nous soutenir */
 .onglet-soutien{{color:#ff8a7f}}.onglet-soutien:hover{{color:#fff}}
+.onglet-pro{{text-decoration:none;color:#e8c46a;display:inline-flex;align-items:center}}.onglet-pro:hover{{color:#fff}}
 .bloc-soutien{{border-top:4px solid var(--accent)!important}}
 .bloc-soutien p{{margin:0 0 12px;color:var(--doux);font-size:14px}}
 .bloc-soutien button,.btn-soutien{{display:inline-block;font:700 14px system-ui,sans-serif;cursor:pointer;border:0;border-radius:22px;padding:10px 20px;background:var(--accent);color:#fff;text-decoration:none}}
@@ -1438,7 +1439,8 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 <div class="bandeau"><span class="direct" data-t>EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
 <nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="" data-t>À la une</button>{onglets}
   <button class="onglet" id="ouvrir-dossiers"{" hidden" if not ordre else ""} data-t>📂 Dossiers</button>
-  {'<button class="onglet onglet-soutien ouvrir-soutien" data-t>♥ Nous soutenir</button>' if avec_soutien else ""}</div>
+  {'<button class="onglet onglet-soutien ouvrir-soutien" data-t>♥ Nous soutenir</button>' if avec_soutien else ""}
+  <a class="onglet onglet-pro" href="pro.html" data-t>✦ Pro (bientôt)</a></div>
   <div class="choix"><select id="choix-region" aria-label="Région"><option value="" data-t>🌍 Toutes les régions</option>{options_regions}</select>
   <select id="choix-langue" aria-label="Langue"><option value="" data-t>🗣 Toutes les langues</option>{options_langues}</select></div></nav>
 <div class="barre">
@@ -1774,6 +1776,10 @@ def construire(articles, etat):
 
     page = DOSSIER / "index.html"
     page.write_text(generer_page(articles, etat), encoding="utf-8")
+    # page « La Centrale Pro — bientôt » (même système de langues que le site)
+    from pro import generer_pro
+    (DOSSIER / "pro.html").write_text(generer_pro(
+        I18N_TETE.replace("__TR__", json.dumps(dictionnaire(), ensure_ascii=False)), LANGUES_UI), encoding="utf-8")
     # état de chaque source, lu par le Studio (publié avec le site, pas enregistré dans le dépôt)
     (DOSSIER / "sources-etat.json").write_text(json.dumps(
         {"maj": datetime.now(timezone.utc).isoformat(timespec="seconds"),

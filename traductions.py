@@ -271,6 +271,113 @@ T = {
     "Échec : ": ("Failed: ", "Error: ", "Mislukt: "),
 }
 
+# --- page « La Centrale Pro — bientôt » (pro.py) ---
+T.update({
+    "✦ Pro (bientôt)": ("✦ Pro (coming soon)", "✦ Pro (próximamente)", "✦ Pro (binnenkort)"),
+    "Bientôt": ("Coming soon", "Próximamente", "Binnenkort"),
+    "L'information reste gratuite pour tout le monde. La version Pro ajoute des outils pour aller plus loin, et finance les médias indépendants.":
+        ("Information stays free for everyone. The Pro version adds tools to go further, and funds independent media.",
+         "La información sigue siendo gratuita para todos. La versión Pro añade herramientas para ir más lejos y financia a los medios independientes.",
+         "Informatie blijft gratis voor iedereen. De Pro-versie voegt hulpmiddelen toe om verder te gaan, en financiert onafhankelijke media."),
+    "Donner mon avis": ("Give my opinion", "Dar mi opinión", "Mijn mening geven"),
+    "L'essentiel reste gratuit": ("The essentials stay free", "Lo esencial sigue siendo gratuito", "Het essentiële blijft gratis"),
+    "Tout ce que le site propose aujourd'hui reste libre et gratuit, pour toujours. La version Pro ajoute des outils, jamais des barrières.":
+        ("Everything the site offers today stays open and free, forever. The Pro version adds tools, never barriers.",
+         "Todo lo que el sitio ofrece hoy sigue siendo libre y gratuito, para siempre. La versión Pro añade herramientas, nunca barreras.",
+         "Alles wat de site vandaag biedt, blijft vrij en gratis, voor altijd. De Pro-versie voegt hulpmiddelen toe, nooit drempels."),
+    "Une charte stricte": ("A strict charter", "Una carta estricta", "Een strikt handvest"),
+    "Aucune source appartenant à un milliardaire ou à un grand groupe, aucun média de propagande d'État.":
+        ("No source owned by a billionaire or a large corporation, no state propaganda outlet.",
+         "Ninguna fuente perteneciente a un multimillonario o a un gran grupo, ningún medio de propaganda estatal.",
+         "Geen enkele bron in handen van een miljardair of een groot concern, geen staatspropaganda."),
+    "Rétribuer l'information libre": ("Paying free information back", "Retribuir la información libre", "Vrije informatie vergoeden"),
+    "Une partie de chaque abonnement est reversée aux médias indépendants que La Centrale relaie.":
+        ("Part of every subscription goes to the independent media La Centrale shares.",
+         "Una parte de cada suscripción se entrega a los medios independientes que La Centrale difunde.",
+         "Een deel van elk abonnement gaat naar de onafhankelijke media die La Centrale deelt."),
+    "Ce que proposerait la version Pro": ("What the Pro version would offer", "Lo que ofrecería la versión Pro", "Wat de Pro-versie zou bieden"),
+    "Vos propres sources": ("Your own sources", "Sus propias fuentes", "Je eigen bronnen"),
+    "Ajoutez les sites, chaînes et canaux que vous suivez : ils alimentent vos fils, comme le reste du site. Chaque source passe par la charte.":
+        ("Add the sites, channels and feeds you follow: they fill your feeds, just like the rest of the site. Every source is checked against the charter.",
+         "Añada los sitios, cadenas y canales que sigue: alimentan sus hilos, como el resto del sitio. Cada fuente pasa por la carta.",
+         "Voeg de sites, zenders en kanalen toe die je volgt: ze vullen je feeds, net als de rest van de site. Elke bron wordt aan het handvest getoetst."),
+    "Comparer les points de vue": ("Compare points of view", "Comparar los puntos de vista", "Standpunten vergelijken"),
+    "Pour un même événement, voyez côte à côte comment chaque source le raconte. Le meilleur moyen de se faire son propre avis.":
+        ("For the same event, see side by side how each source tells it. The best way to make up your own mind.",
+         "Para un mismo acontecimiento, vea lado a lado cómo lo cuenta cada fuente. La mejor manera de formarse su propia opinión.",
+         "Zie voor eenzelfde gebeurtenis naast elkaar hoe elke bron het vertelt. De beste manier om je eigen mening te vormen."),
+    "Le point du jour": ("Daily briefing", "El resumen del día", "Dagoverzicht"),
+    "Chaque matin, par mail ou sur Telegram, l'essentiel de vos fils. Aussi en version audio, à écouter comme un podcast.":
+        ("Every morning, by email or on Telegram, the essentials of your feeds. Also as audio, to listen to like a podcast.",
+         "Cada mañana, por correo o en Telegram, lo esencial de sus hilos. También en audio, para escuchar como un pódcast.",
+         "Elke ochtend, per mail of via Telegram, het belangrijkste uit je feeds. Ook als audio, te beluisteren als een podcast."),
+    "Traduire et résumer": ("Translate and summarise", "Traducir y resumir", "Vertalen en samenvatten"),
+    "Lisez dans votre langue un article publié dans une autre, ou son résumé rapide. Toujours signalé comme automatique, avec le lien vers l'original.":
+        ("Read an article published in another language in your own, or a quick summary. Always marked as automatic, with a link to the original.",
+         "Lea en su idioma un artículo publicado en otro, o su resumen rápido. Siempre indicado como automático, con el enlace al original.",
+         "Lees een artikel uit een andere taal in je eigen taal, of een korte samenvatting. Altijd aangeduid als automatisch, met de link naar het origineel."),
+    "Alertes": ("Alerts", "Alertas", "Meldingen"),
+    "Soyez prévenu dès qu'un sujet qui vous tient à cœur apparaît dans une source.":
+        ("Get notified as soon as a topic you care about appears in a source.",
+         "Reciba un aviso en cuanto un tema que le importa aparezca en una fuente.",
+         "Krijg een melding zodra een onderwerp dat je nauw aan het hart ligt in een bron verschijnt."),
+    "Archives et dossiers personnels": ("Archives and personal files", "Archivos y dosieres personales", "Archief en persoonlijke dossiers"),
+    "Cherchez dans tout l'historique, rangez vos articles avec vos notes, exportez-les en PDF.":
+        ("Search the whole history, file your articles with your notes, export them as PDF.",
+         "Busque en todo el historial, ordene sus artículos con sus notas y expórtelos en PDF.",
+         "Zoek in de volledige geschiedenis, bewaar je artikels met je notities, exporteer ze als pdf."),
+    "Sur tous vos appareils": ("On all your devices", "En todos sus dispositivos", "Op al je toestellen"),
+    "Vos fils, vos sources et votre sélection vous suivent du téléphone à l'ordinateur.":
+        ("Your feeds, sources and selection follow you from phone to computer.",
+         "Sus hilos, sus fuentes y su selección le acompañan del teléfono al ordenador.",
+         "Je feeds, bronnen en selectie volgen je van gsm naar computer."),
+    "Votre propre Centrale": ("Your own Centrale", "Su propia Centrale", "Je eigen Centrale"),
+    "Pour une association, un collectif ou un journaliste : votre version du site, avec vos sources et votre nom, sous la même charte.":
+        ("For an association, a collective or a journalist: your own version of the site, with your sources and your name, under the same charter.",
+         "Para una asociación, un colectivo o un periodista: su versión del sitio, con sus fuentes y su nombre, bajo la misma carta.",
+         "Voor een vereniging, een collectief of een journalist: je eigen versie van de site, met je bronnen en je naam, onder hetzelfde handvest."),
+    "La charte des sources": ("The source charter", "La carta de las fuentes", "Het bronnenhandvest"),
+    "Chaque source ajoutée par un abonné est vérifiée. Une source qui plaît à beaucoup peut être proposée pour le site public : les membres votent.":
+        ("Every source added by a subscriber is checked. A source that many people like can be proposed for the public site: members vote.",
+         "Cada fuente añadida por un suscriptor se verifica. Una fuente que guste a muchos puede proponerse para el sitio público: los miembros votan.",
+         "Elke bron die een abonnee toevoegt, wordt gecontroleerd. Een bron die velen bevalt, kan voor de publieke site worden voorgesteld: de leden stemmen."),
+    "Pas de média appartenant à un milliardaire ou à un grand groupe industriel ou financier.":
+        ("No media owned by a billionaire or a large industrial or financial group.",
+         "Ningún medio perteneciente a un multimillonario o a un gran grupo industrial o financiero.",
+         "Geen media in handen van een miljardair of een groot industrieel of financieel concern."),
+    "Pas de média d'État servant de propagande.": ("No state media used for propaganda.", "Ningún medio estatal al servicio de la propaganda.", "Geen staatsmedia die als propaganda dienen."),
+    "Pas de site condamné pour incitation à la haine.": ("No site convicted of inciting hatred.", "Ningún sitio condenado por incitación al odio.", "Geen site veroordeeld voor aanzetten tot haat."),
+    "Des sources variées, de tous les horizons : chacun se fait son avis, sans étiquette.":
+        ("Varied sources from every horizon: everyone makes up their own mind, without labels.",
+         "Fuentes variadas, de todos los horizontes: cada uno se forma su opinión, sin etiquetas.",
+         "Gevarieerde bronnen uit alle hoeken: iedereen vormt zijn eigen mening, zonder etiketten."),
+    "Prix envisagé": ("Planned price", "Precio previsto", "Beoogde prijs"),
+    "par mois": ("per month", "al mes", "per maand"),
+    "par an": ("per year", "al año", "per jaar"),
+    "Un tarif solidaire est prévu. Prix indicatif : rien n'est encore payant, votre avis nous aide à décider.":
+        ("A solidarity rate is planned. Indicative price: nothing is paid yet, your opinion helps us decide.",
+         "Está prevista una tarifa solidaria. Precio orientativo: todavía no se paga nada, su opinión nos ayuda a decidir.",
+         "Er komt een solidariteitstarief. Richtprijs: er is nog niets betalend, je mening helpt ons beslissen."),
+    "Ça vous intéresse ?": ("Interested?", "¿Le interesa?", "Interesse?"),
+    "Ce qui vous intéresse le plus": ("What interests you most", "Lo que más le interesa", "Wat je het meest interesseert"),
+    "Quel prix vous semble juste ?": ("What price seems fair to you?", "¿Qué precio le parece justo?", "Welke prijs vind je eerlijk?"),
+    "4 € / mois": ("€4 / month", "4 € / mes", "€ 4 / maand"),
+    "40 € / an": ("€40 / year", "40 € / año", "€ 40 / jaar"),
+    "Un tarif plus bas": ("A lower price", "Una tarifa más baja", "Een lagere prijs"),
+    "Je ne paierais pas": ("I wouldn't pay", "No pagaría", "Ik zou niet betalen"),
+    "Une idée, une remarque ? (facultatif)": ("An idea, a comment? (optional)", "¿Una idea, un comentario? (opcional)", "Een idee, een opmerking? (optioneel)"),
+    "✉ Préparer mon message": ("✉ Prepare my message", "✉ Preparar mi mensaje", "✉ Mijn bericht voorbereiden"),
+    "Rien n'est enregistré par ce site : le message se prépare dans votre propre messagerie, vous le relisez avant de l'envoyer.":
+        ("Nothing is recorded by this site: the message is prepared in your own email app, and you read it before sending.",
+         "Este sitio no registra nada: el mensaje se prepara en su propio correo y usted lo revisa antes de enviarlo.",
+         "Deze site registreert niets: het bericht wordt in je eigen mailprogramma voorbereid en je leest het na voor je het verstuurt."),
+    "← Retour à La Centrale": ("← Back to La Centrale", "← Volver a La Centrale", "← Terug naar La Centrale"),
+    "Ce qui m’intéresse :": ("What interests me:", "Lo que me interesa:", "Wat mij interesseert:"),
+    "Prix :": ("Price:", "Precio:", "Prijs:"),
+    "Remarque :": ("Comment:", "Comentario:", "Opmerking:"),
+    "La Centrale Pro : mon avis": ("La Centrale Pro: my opinion", "La Centrale Pro: mi opinión", "La Centrale Pro: mijn mening"),
+})
+
 ORDRE = ("en", "es", "nl")
 
 

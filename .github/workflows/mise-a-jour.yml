@@ -51,6 +51,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html _site/
+          if [ -f pro.html ]; then cp pro.html _site/; fi
           if [ -f sources-etat.json ]; then cp sources-etat.json _site/; fi
           cp -r studio _site/
           cp -r fonds _site/
