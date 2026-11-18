@@ -2,6 +2,20 @@
   "aide": "Onglet « Nous soutenir » : il apparaît sur le site dès qu'un lien ou un IBAN est rempli. liens = boutons (Ko-fi, Liberapay, PayPal…), iban = virement bancaire.",
   "texte": "La Centrale est indépendante : pas de publicité, pas de subvention, pas d'actionnaire. Chaque jour, nous rassemblons des centaines d'articles, de vidéos et de documents venus de tous les horizons, pour que chacun puisse s'informer à la source et se faire son propre avis. Si ce travail de partage vous est utile, vous pouvez le soutenir, même avec un petit montant.",
   "philosophie": "La Centrale existe grâce au travail des journalistes, chercheurs et médias indépendants qu'elle relaie. Il est juste qu'ils en profitent aussi : une partie de chaque don leur est reversée. Votre soutien fait donc vivre deux choses à la fois : ce lieu de partage, et l'information indépendante elle-même.",
+  "traductions": {
+    "en": {
+      "texte": "La Centrale is independent: no ads, no subsidies, no shareholders. Every day we gather hundreds of articles, videos and documents from every horizon, so that everyone can get their information straight from the source and make up their own mind. If this sharing work is useful to you, you can support it, even with a small amount.",
+      "philosophie": "La Centrale exists thanks to the work of the independent journalists, researchers and media it shares. It is only fair that they benefit too: part of every donation is passed on to them. Your support therefore keeps two things alive at once: this place of sharing, and independent information itself."
+    },
+    "es": {
+      "texte": "La Centrale es independiente: sin publicidad, sin subvenciones, sin accionistas. Cada día reunimos cientos de artículos, vídeos y documentos de todos los horizontes, para que cada uno pueda informarse en la fuente y formarse su propia opinión. Si este trabajo de difusión le resulta útil, puede apoyarlo, incluso con una pequeña cantidad.",
+      "philosophie": "La Centrale existe gracias al trabajo de los periodistas, investigadores y medios independientes que difunde. Es justo que ellos también se beneficien: una parte de cada donación se les entrega. Su apoyo mantiene vivas dos cosas a la vez: este lugar de intercambio y la propia información independiente."
+    },
+    "nl": {
+      "texte": "La Centrale is onafhankelijk: geen reclame, geen subsidies, geen aandeelhouders. Elke dag verzamelen we honderden artikels, video's en documenten uit alle hoeken, zodat iedereen zich bij de bron kan informeren en zelf een mening kan vormen. Heb je iets aan dit deelwerk, dan kun je het steunen, ook met een klein bedrag.",
+      "philosophie": "La Centrale bestaat dankzij het werk van de onafhankelijke journalisten, onderzoekers en media die ze deelt. Het is niet meer dan eerlijk dat zij er ook iets aan hebben: een deel van elke gift gaat naar hen. Je steun houdt dus twee dingen tegelijk in leven: deze plek om te delen, en onafhankelijke informatie zelf."
+    }
+  },
   "liens": [
     {"nom": "", "url": ""}
   ],

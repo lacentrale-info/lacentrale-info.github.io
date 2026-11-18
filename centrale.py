@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
+from traductions import LANGUES_UI, dictionnaire
 from telephone import en_articles, infos_page, lire_envois, premiere_phrase, relever_envois, traiter_boite
 
 DOSSIER = Path(__file__).resolve().parent
@@ -610,22 +611,22 @@ dialog .aide{font-size:13px;color:var(--doux);margin:0}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--texte);color:var(--fond);padding:10px 18px;border-radius:8px;z-index:50;font-size:14px;max-width:90vw}
 </style>
 <dialog id="reglages">
-  <h2>Réglages</h2>
-  <p class="aide">Pour Telegram : créez un canal, créez un bot avec @BotFather, puis ajoutez le bot comme administrateur du canal.</p>
-  <label for="tg-jeton">Jeton du bot Telegram (donné par @BotFather)</label>
+  <h2 data-t>Réglages</h2>
+  <p class="aide" data-t>Pour Telegram : créez un canal, créez un bot avec @BotFather, puis ajoutez le bot comme administrateur du canal.</p>
+  <label for="tg-jeton" data-t>Jeton du bot Telegram (donné par @BotFather)</label>
   <input id="tg-jeton" placeholder="123456789:AAH...">
-  <label for="tg-canal">Nom du canal Telegram</label>
+  <label for="tg-canal" data-t>Nom du canal Telegram</label>
   <input id="tg-canal" placeholder="@lacentrale_info">
-  <label for="insta-compte">Votre compte Instagram (affiché sur les visuels)</label>
+  <label for="insta-compte" data-t>Votre compte Instagram (affiché sur les visuels)</label>
   <input id="insta-compte" placeholder="@lacentrale">
-  <div class="boutons"><button id="tg-test">Tester Telegram</button><button class="principal" id="reglages-ok">Enregistrer</button></div>
+  <div class="boutons"><button id="tg-test" data-t>Tester Telegram</button><button class="principal" id="reglages-ok" data-t>Enregistrer</button></div>
 </dialog>
 <dialog id="dlg-insta">
-  <h2>Visuel Instagram</h2>
+  <h2 data-t>Visuel Instagram</h2>
   <img id="apercu-insta" alt="Aperçu du visuel">
-  <label for="legende-insta">Texte de la publication (à coller dans Instagram)</label>
+  <label for="legende-insta" data-t>Texte de la publication (à coller dans Instagram)</label>
   <textarea id="legende-insta"></textarea>
-  <div class="boutons"><button id="insta-fermer">Fermer</button><button id="insta-copier">Copier le texte</button><button class="principal" id="insta-telecharger">Télécharger l'image</button></div>
+  <div class="boutons"><button id="insta-fermer" data-t>Fermer</button><button id="insta-copier" data-t>Copier le texte</button><button class="principal" id="insta-telecharger" data-t>Télécharger l'image</button></div>
 </dialog>
 <div id="toast" hidden></div>
 <script>
@@ -643,7 +644,7 @@ const motCle=s=>'#'+s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0
 $('ouvrir-reglages').onclick=()=>{$('tg-jeton').value=lire('tg-jeton','');$('tg-canal').value=lire('tg-canal','');
   $('insta-compte').value=lire('insta-compte','');$('reglages').showModal()};
 $('reglages-ok').onclick=()=>{ecrire('tg-jeton',$('tg-jeton').value.trim());ecrire('tg-canal',$('tg-canal').value.trim());
-  ecrire('insta-compte',$('insta-compte').value.trim());$('reglages').close();toast('Réglages enregistrés')};
+  ecrire('insta-compte',$('insta-compte').value.trim());$('reglages').close();toast(t('Réglages enregistrés'))};
 
 /* Telegram : requête « simple » (formulaire) pour passer depuis un fichier local */
 async function telegram(methode,params){
@@ -654,7 +655,7 @@ async function telegram(methode,params){
 }
 $('tg-test').onclick=async()=>{ecrire('tg-jeton',$('tg-jeton').value.trim());ecrire('tg-canal',$('tg-canal').value.trim());
   try{await telegram('sendMessage',{text:'✅ La Centrale est bien connectée à ce canal.'});toast('Message de test envoyé sur le canal')}
-  catch(e){toast('Échec : '+e.message)}};
+  catch(e){toast(t('Échec : ')+e.message)}};
 let envoyes=new Set();try{envoyes=new Set(JSON.parse(lire('centrale-envoyes','[]')))}catch(e){}
 function majEnvois(){document.querySelectorAll('.btn-telegram').forEach(b=>{const on=envoyes.has(b.closest('.carte').dataset.lien);
   b.classList.toggle('envoye',on);b.title=on?'Déjà publié sur Telegram (cliquer pour republier)':'Publier sur le canal Telegram'})}
@@ -663,8 +664,8 @@ document.querySelectorAll('.btn-telegram').forEach(b=>b.onclick=async()=>{
   const texte=`<b>${esc(a.titre)}</b>\n\n${esc(a.resume)}\n\n📰 ${esc(a.source)} · ${motCle(a.theme)}\n🔗 ${esc(a.lien)}`;
   b.disabled=true;
   try{await telegram('sendMessage',{text:texte,parse_mode:'HTML'});envoyes.add(a.lien);ecrire('centrale-envoyes',JSON.stringify([...envoyes]));
-    majEnvois();toast('Publié sur Telegram')}
-  catch(e){toast('Échec : '+e.message)}
+    majEnvois();toast(t('Publié sur Telegram'))}
+  catch(e){toast(t('Échec : ')+e.message)}
   b.disabled=false;
 });
 majEnvois();
@@ -705,8 +706,8 @@ document.querySelectorAll('.btn-insta').forEach(b=>b.onclick=()=>{
 });
 $('insta-fermer').onclick=()=>$('dlg-insta').close();
 $('insta-telecharger').onclick=()=>{const l=document.createElement('a');l.href=imageCourante;l.download=nomCourant;l.click()};
-$('insta-copier').onclick=async()=>{const t=$('legende-insta');
-  try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand('copy')}toast('Texte copié')};
+$('insta-copier').onclick=async()=>{const zone=$('legende-insta');
+  try{await navigator.clipboard.writeText(zone.value)}catch(e){zone.select();document.execCommand('copy')}toast(t('Texte copié'))};
 })();
 </script>
 '''
@@ -732,7 +733,7 @@ LECTEUR = r'''
 .carte.video img+.corps::before{content:"▶";position:absolute;left:12px;top:12px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;display:grid;place-items:center;font-size:15px}
 </style>
 <dialog id="lecteur" aria-label="Lecteur vidéo">
-  <div class="lect-barre"><a id="lect-source" href="#" target="_blank" rel="noopener">Ouvrir sur le site d'origine ↗</a><button id="lect-fermer" type="button">✕ Fermer</button></div>
+  <div class="lect-barre"><a id="lect-source" href="#" target="_blank" rel="noopener" data-t>Ouvrir sur le site d'origine ↗</a><button id="lect-fermer" type="button" data-t>✕ Fermer</button></div>
   <div id="lect-zone"></div>
 </dialog>
 <script>
@@ -765,7 +766,7 @@ document.addEventListener('click',e=>{
   else{
     /* message de secours, caché derrière le lecteur : visible seulement si le navigateur bloque Facebook/Instagram (ex. Brave) */
     const nom=/instagram/.test(l.iframe)?'Instagram':'Facebook',s=document.createElement('div');s.className='lect-secours';
-    s.innerHTML='<p>Chargement du lecteur '+nom+'…</p><p class="petit">Rien ne s\'affiche ? Votre navigateur bloque peut-être les lecteurs '+nom+' (dans Brave : touchez le lion 🦁 dans la barre d\'adresse et baissez les boucliers pour ce site).</p><a class="voir" target="_blank" rel="noopener">▶ Regarder sur '+nom+'</a>';
+    const T_=window.t||(x=>x);s.innerHTML='<p>'+T_('Chargement du lecteur {q}…',{q:nom})+'</p><p class="petit">'+T_("Rien ne s'affiche ? Votre navigateur bloque peut-être les lecteurs {q} (dans Brave : touchez le lion 🦁 dans la barre d'adresse et baissez les boucliers pour ce site).",{q:nom})+'</p><a class="voir" target="_blank" rel="noopener">'+T_('▶ Regarder sur {q}',{q:nom})+'</a>';
     s.querySelector('a').href=a.href;zone.appendChild(s);
     const f=document.createElement('iframe');f.src=l.iframe;f.allow='autoplay; encrypted-media; picture-in-picture; web-share; fullscreen';f.allowFullscreen=true;f.loading='eager';f.style.setProperty('--h',l.h||'760px');zone.appendChild(f)}
   document.getElementById('lect-source').href=a.href;
@@ -785,6 +786,28 @@ PARTAGE += LECTEUR
 # Rien n'est envoyé nulle part : les fils restent dans le navigateur (localStorage) ; un lien (#fil&…)
 # permet de les ouvrir sur un autre appareil ou de les partager. Utilise les variables de la page
 # (fil, theme, filtrer, activerOnglet…) ; __FILS_DONNEES__ est remplacé par generer_page().
+# Langue de l'interface (traductions.py) : choisie selon le navigateur du visiteur, modifiable en haut de la page.
+# t("texte français") renvoie la traduction ; les éléments marqués data-t / data-th / data-tp / data-tt / data-ta
+# sont traduits au chargement. __TR__ est remplacé par le dictionnaire.
+I18N_TETE = r'''<script>
+const TR=__TR__,LANGUES_UI=['fr','en','es','nl'];
+const UI=(()=>{let l='';try{l=localStorage.getItem('centrale-ui')||''}catch(e){}
+  if(!LANGUES_UI.includes(l)){const n=(navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language||'fr']).map(x=>String(x).slice(0,2).toLowerCase());
+    l=n.find(x=>LANGUES_UI.includes(x))||'en'}
+  return l})();
+document.documentElement.lang=UI;
+function t(s,v){let r=(UI!=='fr'&&TR[s]&&TR[s][UI])||s;if(v)for(const k in v)r=r.split('{'+k+'}').join(v[k]);return r}
+function traduirePage(){
+  if(UI==='fr')return;
+  document.querySelectorAll('[data-t]').forEach(el=>{if(el.dataset.ok_t)return;el.dataset.ok_t=1;
+    el.textContent=t(el.dataset.t||el.textContent.trim(),{n:el.dataset.n,q:el.dataset.q})});
+  document.querySelectorAll('[data-th]').forEach(el=>{if(el.dataset.ok_th)return;el.dataset.ok_th=1;
+    const k=el.dataset.th||el.innerHTML.trim(),r=t(k);if(r!==k)el.innerHTML=r});
+  [['tp','placeholder'],['tt','title'],['ta','aria-label']].forEach(([d,a])=>document.querySelectorAll('[data-'+d+']').forEach(el=>{
+    if(el.dataset['ok_'+d])return;el.dataset['ok_'+d]=1;const v=el.getAttribute(a);if(v)el.setAttribute(a,t(v))}));
+}
+</script>'''
+
 MES_FILS = r'''<script>
 (()=>{
 const D=__FILS_DONNEES__;
@@ -812,7 +835,7 @@ const lienFil=f=>{const p=new URLSearchParams({fil:'1',n:f.n,e:f.e});['r','s','g
   return location.href.split('#')[0]+'#'+p.toString()};
 const lireLien=()=>{const p=new URLSearchParams(location.hash.slice(1));if(!p.has('fil'))return null;
   const l=k=>(p.get(k)||'').split('|').map(x=>x.trim()).filter(Boolean).slice(0,40);
-  const f={n:(p.get('n')||'Fil partagé').slice(0,40),e:(p.get('e')||'✦').slice(0,8),r:l('r'),s:l('s'),g:l('g'),m:l('m')};
+  const f={n:(p.get('n')||t('Fil partagé')).slice(0,40),e:(p.get('e')||'✦').slice(0,8),r:l('r'),s:l('s'),g:l('g'),m:l('m')};
   return fils.find(x=>cleFil(x)===cleFil(f))||f};
 const majAdresse=()=>{try{history.replaceState(null,'',fil?lienFil(fil):location.href.split('#')[0])}catch(e){}};
 let minuteurToast;
@@ -820,13 +843,13 @@ function toast(m){const t=document.getElementById('toast');(dlg.open?dlg:documen
   t.textContent=m;t.hidden=false;clearTimeout(minuteurToast);minuteurToast=setTimeout(()=>t.hidden=true,3800)}
 async function partager(f){const u=lienFil(f);
   try{if(navigator.share){await navigator.share({title:'La Centrale · '+f.e+' '+f.n,url:u});return}}catch(e){if(e.name==='AbortError')return}
-  try{await navigator.clipboard.writeText(u);toast('Lien copié : collez-le dans un message ou gardez-le en favori')}catch(e){prompt('Copiez ce lien :',u)}}
+  try{await navigator.clipboard.writeText(u);toast(t('Lien copié : collez-le dans un message ou gardez-le en favori'))}catch(e){prompt(t('Copiez ce lien :'),u)}}
 
 /* barre du haut : un bouton par fil + « Mes fils » */
 const barreFils=document.getElementById('barre-fils');
 function majBarre(){
   barreFils.innerHTML=fils.map(f=>`<button class="fil-chip${fil&&fil.id===f.id?' actif':''}" data-id="${h(f.id)}">${h(f.e)} ${h(f.n)}</button>`).join('')
-    +`<button id="gerer-fils">${fils.length?'✦ Mes fils':'✦ Créer mon fil'}</button>`;
+    +`<button id="gerer-fils">${t(fils.length?'✦ Mes fils':'✦ Créer mon fil')}</button>`;
   barreFils.querySelectorAll('.fil-chip').forEach(b=>b.onclick=()=>{const f=fils.find(x=>x.id===b.dataset.id);
     if(fil&&fil.id===f.id)quitterFil(true);else choisirFil(f)});
   document.getElementById('gerer-fils').onclick=ouvrirGestion;
@@ -842,29 +865,29 @@ window.quitterFil=refiltrer=>{fil=null;memoActif('');majBarre();majAdresse();if(
 document.getElementById('fil-quitter').onclick=()=>{quitterFil(true);scrollTo({top:0,behavior:'smooth'})};
 document.getElementById('fil-partager').onclick=()=>partager(fil);
 document.getElementById('fil-garder').onclick=()=>{const f={...fil,id:'f'+Date.now()};fils.push(f);sauverFils();
-  fil=f;memoActif(f.id);majBarre();filtrer();toast('Fil gardé : il est maintenant dans la barre, en haut de la page')};
+  fil=f;memoActif(f.id);majBarre();filtrer();toast(t('Fil gardé : il est maintenant dans la barre, en haut de la page'))};
 document.getElementById('fil-modifier').onclick=()=>{ouvrirGestion();editer(fil)};
 
 /* fenêtre « Mes fils » : la liste, les fils tout prêts, et l'éditeur */
 const dlg=document.getElementById('dlg-fils'),corps=document.getElementById('fils-corps');
-const resume=f=>[...f.r.map(r=>r+' (tout)'),...f.s].join(' · ')+((f.g.length||f.m.length)?' — si ça parle de : '+[...f.g,...f.m].join(', '):'');
+const resume=f=>[...f.r.map(r=>t(r)+' '+t('(tout)')),...f.s.map(x=>t(x))].join(' · ')+((f.g.length||f.m.length)?t(' — si ça parle de : ')+[...f.g.map(x=>t(x)),...f.m].join(', '):'');
 function ouvrirGestion(){vueListe();if(!dlg.open)dlg.showModal();dlg.scrollTop=0}
 function vueListe(){
-  corps.innerHTML=`<p class="fiche-intro">Un fil, c'est <b>votre propre une</b> : seulement les sujets qui vous intéressent. Faites-en un par centre d'intérêt, ou un par personne de la maison. Vos fils restent sur cet appareil ; le bouton 🔗 donne un lien pour les ouvrir ailleurs ou les partager.</p>
-  <h3 class="fils-titre">Vos fils</h3>
-  ${fils.length?fils.map((f,i)=>`<div class="fil-ligne"><button class="fil-ouvrir" data-i="${i}">${h(f.e)} ${h(f.n)}<small>${h(resume(f))}</small></button><button class="mini" data-act="modifier" data-i="${i}" title="Modifier" aria-label="Modifier">✎</button><button class="mini" data-act="lien" data-i="${i}" title="Partager le lien" aria-label="Partager le lien">🔗</button><button class="mini" data-act="suppr" data-i="${i}" title="Supprimer" aria-label="Supprimer">🗑</button></div>`).join(''):'<p class="fils-aide">Aucun fil pour l\'instant : créez le vôtre ou prenez-en un tout prêt.</p>'}
-  <button class="btn-plein" id="fils-creer" style="margin-top:12px">＋ Créer un fil</button>
-  <h3 class="fils-titre">Fils tout prêts</h3><p class="fils-aide">Un clic pour l'ajouter à vos fils (vous pourrez le modifier ensuite).</p>
-  <div class="fils-prets">${D.prets.map((f,i)=>`<button class="puce" data-pret="${i}">${h(f.e)} ${h(f.n)} ＋</button>`).join('')}</div>`;
+  corps.innerHTML=`<p class="fiche-intro">${t("Un fil, c'est <b>votre propre une</b> : seulement les sujets qui vous intéressent. Faites-en un par centre d'intérêt, ou un par personne de la maison. Vos fils restent sur cet appareil ; le bouton 🔗 donne un lien pour les ouvrir ailleurs ou les partager.")}</p>
+  <h3 class="fils-titre">${t('Vos fils')}</h3>
+  ${fils.length?fils.map((f,i)=>`<div class="fil-ligne"><button class="fil-ouvrir" data-i="${i}">${h(f.e)} ${h(f.n)}<small>${h(resume(f))}</small></button><button class="mini" data-act="modifier" data-i="${i}" title="${t('Modifier')}" aria-label="${t('Modifier')}">✎</button><button class="mini" data-act="lien" data-i="${i}" title="${t('Partager le lien')}" aria-label="${t('Partager le lien')}">🔗</button><button class="mini" data-act="suppr" data-i="${i}" title="${t('Supprimer')}" aria-label="${t('Supprimer')}">🗑</button></div>`).join(''):'<p class="fils-aide">'+t("Aucun fil pour l'instant : créez le vôtre ou prenez-en un tout prêt.")+'</p>'}
+  <button class="btn-plein" id="fils-creer" style="margin-top:12px">${t('＋ Créer un fil')}</button>
+  <h3 class="fils-titre">${t('Fils tout prêts')}</h3><p class="fils-aide">${t("Un clic pour l'ajouter à vos fils (vous pourrez le modifier ensuite).")}</p>
+  <div class="fils-prets">${D.prets.map((f,i)=>`<button class="puce" data-pret="${i}">${h(f.e)} ${h(t(f.n))} ＋</button>`).join('')}</div>`;
   corps.querySelectorAll('.fil-ouvrir').forEach(b=>b.onclick=()=>{dlg.close();choisirFil(fils[b.dataset.i])});
   corps.querySelectorAll('.mini').forEach(b=>b.onclick=()=>{const f=fils[b.dataset.i];
     if(b.dataset.act==='modifier')editer(f);
     else if(b.dataset.act==='lien')partager(f);
-    else if(confirm('Supprimer le fil « '+f.n+' » ?')){fils.splice(b.dataset.i,1);sauverFils();
+    else if(confirm(t('Supprimer le fil « {q} » ?',{q:f.n}))){fils.splice(b.dataset.i,1);sauverFils();
       if(fil&&fil.id===f.id)quitterFil(true);majBarre();vueListe()}});
   document.getElementById('fils-creer').onclick=()=>editer(null);
   corps.querySelectorAll('[data-pret]').forEach(b=>b.onclick=()=>{
-    const p=JSON.parse(JSON.stringify(D.prets[b.dataset.pret]));
+    const p=JSON.parse(JSON.stringify(D.prets[b.dataset.pret]));p.n=t(p.n);
     let f=fils.find(x=>cleFil(x)===cleFil(p));
     if(!f){f={...p,id:'f'+Date.now()};fils.push(f);sauverFils()}
     dlg.close();choisirFil(f)});
@@ -873,20 +896,20 @@ const EMOJIS=['🌱','🌍','💶','🗳','🧭','🩺','🔥','⚡','🏡','�
 function editer(f){
   const b=f?JSON.parse(JSON.stringify({n:f.n,e:f.e,r:f.r,s:f.s,g:f.g,m:f.m})):{n:'',e:'🌱',r:[],s:[],g:[],m:[]};
   const id=f&&f.id;
-  corps.innerHTML=`<label for="fil-nom">Nom du fil</label><input type="text" id="fil-nom" maxlength="30" placeholder="ex. Mon jardin, Papa, Géopolitique…" value="${h(b.n)}">
+  corps.innerHTML=`<label for="fil-nom">${t('Nom du fil')}</label><input type="text" id="fil-nom" maxlength="30" placeholder="${t('ex. Mon jardin, Papa, Géopolitique…')}" value="${h(b.n)}">
   <div class="emojis">${EMOJIS.map(x=>`<button type="button" data-e="${x}" class="${x===b.e?'on':''}">${x}</button>`).join('')}</div>
-  <h3 class="fils-titre">Ce qui m'intéresse</h3><p class="fils-aide">Un onglet entier, ou seulement quelques sous-chapitres.</p>
-  ${Object.entries(D.rubriques).map(([r,ss])=>`<div class="groupe"><button type="button" class="puce puce-r${b.r.includes(r)?' on':''}" data-r="${h(r)}">${h(r)} (tout)</button>${ss.map(s=>`<button type="button" class="puce${b.s.includes(s)?' on':''}" data-s="${h(s)}">${h(s)}</button>`).join('')}</div>`).join('')}
-  <h3 class="fils-titre">Seulement si ça parle de… <small style="font:400 13px system-ui,sans-serif;color:var(--doux)">(facultatif)</small></h3>
-  <div class="groupe">${D.regions.map(g=>`<button type="button" class="puce${b.g.includes(g)?' on':''}" data-g="${h(g)}">${h(g)}</button>`).join('')}</div>
-  <label for="fil-mots">Mots (séparés par des virgules)</label><input type="text" id="fil-mots" placeholder="ex. Poutine, gaz, semences" value="${h(b.m.join(', '))}">
+  <h3 class="fils-titre">${t("Ce qui m'intéresse")}</h3><p class="fils-aide">${t('Un onglet entier, ou seulement quelques sous-chapitres.')}</p>
+  ${Object.entries(D.rubriques).map(([r,ss])=>`<div class="groupe"><button type="button" class="puce puce-r${b.r.includes(r)?' on':''}" data-r="${h(r)}">${h(t(r))} ${t('(tout)')}</button>${ss.map(s=>`<button type="button" class="puce${b.s.includes(s)?' on':''}" data-s="${h(s)}">${h(t(s))}</button>`).join('')}</div>`).join('')}
+  <h3 class="fils-titre">${t('Seulement si ça parle de…')} <small style="font:400 13px system-ui,sans-serif;color:var(--doux)">${t('(facultatif)')}</small></h3>
+  <div class="groupe">${D.regions.map(g=>`<button type="button" class="puce${b.g.includes(g)?' on':''}" data-g="${h(g)}">${h(t(g))}</button>`).join('')}</div>
+  <label for="fil-mots">${t('Mots (séparés par des virgules)')}</label><input type="text" id="fil-mots" placeholder="${t('ex. Poutine, gaz, semences')}" value="${h(b.m.join(', '))}">
   <p class="fil-compte" id="fil-compte"></p>
-  <div class="fil-boutons"><button type="button" class="btn-vide" id="fil-annuler">Annuler</button><button type="button" class="btn-plein" id="fil-ok">Enregistrer et ouvrir</button></div>`;
+  <div class="fil-boutons"><button type="button" class="btn-vide" id="fil-annuler">${t('Annuler')}</button><button type="button" class="btn-plein" id="fil-ok">${t('Enregistrer et ouvrir')}</button></div>`;
   const lire=()=>{b.n=document.getElementById('fil-nom').value.trim();
     b.m=document.getElementById('fil-mots').value.split(',').map(x=>x.trim()).filter(Boolean)};
   const vide=()=>!b.r.length&&!b.s.length&&!b.g.length&&!b.m.length;
   const compter=()=>{lire();const n=vide()?0:cartes.filter(c=>!c.dataset.retire&&(!langue||c.dataset.langue===langue)&&dansLeFil(c,b)).length;
-    document.getElementById('fil-compte').textContent=vide()?'Choisissez au moins un sujet.':`→ ${n} article${n>1?'s':''} en ce moment dans ce fil`};
+    document.getElementById('fil-compte').textContent=vide()?t('Choisissez au moins un sujet.'):t(n>1?'→ {n} articles en ce moment dans ce fil':'→ {n} article en ce moment dans ce fil',{n})};
   corps.querySelectorAll('.puce').forEach(p=>p.onclick=()=>{
     const [k,v]=p.dataset.r!=null?['r',p.dataset.r]:p.dataset.s!=null?['s',p.dataset.s]:['g',p.dataset.g];
     const i=b[k].indexOf(v);if(i<0)b[k].push(v);else b[k].splice(i,1);p.classList.toggle('on',i<0);compter()});
@@ -895,7 +918,7 @@ function editer(f){
   document.getElementById('fil-mots').oninput=compter;
   document.getElementById('fil-annuler').onclick=vueListe;
   document.getElementById('fil-ok').onclick=()=>{lire();if(vide()){compter();return}
-    b.n=b.n||'Mon fil';let g=id&&fils.find(x=>x.id===id);
+    b.n=b.n||t('Mon fil');let g=id&&fils.find(x=>x.id===id);
     if(g)Object.assign(g,b);else{g={...b,id:'f'+Date.now()};fils.push(g)}
     sauverFils();dlg.close();choisirFil(g)};
   compter();dlg.scrollTop=0;
@@ -907,7 +930,7 @@ const partage=lireLien();
 let depart=partage;
 if(!depart){let id='';try{id=localStorage.getItem('centrale-fil-actif')||''}catch(e){}depart=fils.find(x=>x.id===id)}
 if(depart)choisirFil(depart);
-if(partage&&!filGarde(partage))toast('Fil partagé : touchez « ＋ Garder ce fil » pour le retrouver plus tard');
+if(partage&&!filGarde(partage))toast(t('Fil partagé : touchez « ＋ Garder ce fil » pour le retrouver plus tard'));
 addEventListener('hashchange',()=>{const f=lireLien();if(f&&(!fil||cleFil(f)!==cleFil(fil)))choisirFil(f)});
 })();
 </script>
@@ -971,15 +994,15 @@ def generer_page(articles, etat_sources):
         return f'''<article class="carte{ent(a)}"{ancre} data-source="{e(a["source"])}" data-theme="{e(a["theme"])}" data-lien="{e(a["lien"])}" data-ts="{ts(a)}" data-langue="{a.get("langue", "fr")}" data-regions="{e("|".join(a.get("regions", [])))}" data-rubrique="{e(RUBRIQUE_DU_THEME.get(a["theme"], ""))}" data-sujets="{e("|".join(a.get("sujets", [])))}"{' data-prudence="1"' if a.get("prudence") else ""}{' data-avertir="1"' if a.get("avertir") else ""}>
   <a class="lien" href="{e(a["lien"])}" target="_blank" rel="noopener">{img}
     <div class="corps">
-      <div class="meta"><span class="nouveau" hidden>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
+      <div class="meta"><span class="nouveau" hidden data-t>Nouveau</span><span class="src">{e(a["source"])}</span><span class="theme" data-t>{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}" title="{date_affichee(a["date"])}">{date_affichee(a["date"])}</time></div>
       <h3>{e(a["titre"])}</h3>
       <p>{e(a["resume"])}</p>
     </div>
   </a>
   <div class="actions">
-    <button class="etoile" title="Ajouter à ma sélection" aria-label="Ajouter à ma sélection">☆</button>
-    <button class="btn-telegram" title="Publier sur le canal Telegram" aria-label="Publier sur Telegram">✈</button>
-    <button class="btn-insta" title="Créer un visuel Instagram" aria-label="Créer un visuel Instagram">▣</button>
+    <button class="etoile" title="Ajouter à ma sélection" aria-label="Ajouter à ma sélection" data-tt data-ta>☆</button>
+    <button class="btn-telegram" title="Publier sur le canal Telegram" aria-label="Publier sur le canal Telegram" data-tt data-ta>✈</button>
+    <button class="btn-insta" title="Créer un visuel Instagram" aria-label="Créer un visuel Instagram" data-tt data-ta>▣</button>
   </div>
 </article>'''
 
@@ -1004,16 +1027,16 @@ def generer_page(articles, etat_sources):
     </div>
   </a>
   <div class="actions">
-    <button class="etoile" title="Ajouter à ma sélection" aria-label="Ajouter à ma sélection">☆</button>
-    <button class="btn-telegram" title="Publier sur le canal Telegram" aria-label="Publier sur Telegram">✈</button>
-    <button class="btn-insta" title="Créer un visuel Instagram" aria-label="Créer un visuel Instagram">▣</button>
+    <button class="etoile" title="Ajouter à ma sélection" aria-label="Ajouter à ma sélection" data-tt data-ta>☆</button>
+    <button class="btn-telegram" title="Publier sur le canal Telegram" aria-label="Publier sur le canal Telegram" data-tt data-ta>✈</button>
+    <button class="btn-insta" title="Créer un visuel Instagram" aria-label="Créer un visuel Instagram" data-tt data-ta>▣</button>
   </div>
 </article>'''
 
     def diapo(a, i):
         return f'''<a class="diapo{" active" if i == 0 else ""}{ent(a)}" data-langue="{a.get("langue", "fr")}" href="{e(a["lien"])}" target="_blank" rel="noopener">
   <img src="{e(a["image"])}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
-  <div class="voile"><div class="meta"><span class="src">{e(a["source"])}</span><span class="theme">{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}"></time></div>
+  <div class="voile"><div class="meta"><span class="src">{e(a["source"])}</span><span class="theme" data-t>{e(a["theme"])}</span><time class="rel" data-ts="{ts(a)}"></time></div>
   <h3>{e(a["titre"])}</h3><p>{e(a["resume"])}</p></div></a>'''
 
     # fil groupé par jour
@@ -1022,7 +1045,7 @@ def generer_page(articles, etat_sources):
     for a in articles:
         jour = nom_du_jour(a["date"], aujourdhui)
         if jour != jour_courant:
-            fil.append(f'<div class="jour">{e(jour)}</div>')
+            fil.append(f'<div class="jour" data-jour="{a["date"].astimezone().date().isoformat() if a["date"] else ""}" data-t>{e(jour)}</div>')
             jour_courant = jour
         fil.append(carte(a))
 
@@ -1037,7 +1060,7 @@ def generer_page(articles, etat_sources):
     )
     liste_sources = "".join(
         f'<li data-theme="{e(s.get("theme", ""))}" data-rubrique="{e(RUBRIQUE_DU_THEME.get(s.get("theme", ""), ""))}"><button class="filtre-source" data-source="{e(s["nom"])}">{e(s["nom"])}</button>'
-        f'<span class="{"ok" if not err else "ko"}" title="{e(err or "")}">{n if not err else "hors ligne"}</span></li>'
+        f'<span class="{"ok" if not err else "ko"}" title="{e(err or "")}"{" data-t" if err else ""}>{n if not err else "hors ligne"}</span></li>'
         for s, n, err in etat_sources
     )
     # dossiers documentés (dossiers.json) : ce qui est établi / ce qui reste débattu
@@ -1060,27 +1083,30 @@ def generer_page(articles, etat_sources):
 
     def fiche(d):
         return f'''<section class="fait"><h3>{e(d["titre"])}</h3>
-  <p><span class="etiq etabli">Établi</span>{e(d["etabli"])}</p>
-  <p><span class="etiq debattu">Débattu</span>{e(d["debattu"])}</p>
-  <details><summary>Les {len(d["liens"])} sources</summary><ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></details></section>'''
+  <p><span class="etiq etabli" data-t>Établi</span>{e(d["etabli"])}</p>
+  <p><span class="etiq debattu" data-t>Débattu</span>{e(d["debattu"])}</p>
+  <details><summary data-t="Les {{n}} sources" data-n="{len(d["liens"])}">Les {len(d["liens"])} sources</summary><ul>{"".join(f'<li><a href="{e(u)}" target="_blank" rel="noopener">{e(t)}</a></li>' for t, u in d["liens"])}</ul></details></section>'''
 
     cartes_dossiers, fenetres = [], []
     for i, t in enumerate(ordre):
         fs, n = groupes[t], nb_theme.get(t, 0)
-        chiffres = " · ".join(x for x in (f"{n} article{'s' if n > 1 else ''}" if n else "",
-                                         f"{len(fs)} fiche{'s' if len(fs) > 1 else ''} documentée{'s' if len(fs) > 1 else ''}" if fs else "") if x)
+        def compte(k, un, plusieurs):
+            cle = plusieurs if k > 1 else un
+            return f'<span data-t="{cle}" data-n="{k}">{cle.replace("{n}", str(k))}</span>'
+        chiffres = " · ".join(x for x in (compte(n, "{n} article", "{n} articles") if n else "",
+                                         compte(len(fs), "{n} fiche documentée", "{n} fiches documentées") if fs else "") if x)
         resume = (" · ".join(d["titre"] for d in fs) if fs
                   else "Revue de presse suivie automatiquement : les derniers articles parus sur le sujet.")
-        bouton_articles = (f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}">Les articles →</button>' if n else "")
-        bouton_faits = (f'<button class="dos-faits" data-fiche="fiche-{i}">📄 Les faits</button>' if fs else "")
-        cartes_dossiers.append(f'''<article class="dos"><h3>{e(nom_dossier(t))}</h3><p class="dos-chiffres">{chiffres}</p>
-  <p class="dos-resume">{e(resume)}</p><div class="dos-actions">{bouton_faits}{bouton_articles}</div></article>''')
+        bouton_articles = (f'<button class="filtre-theme dossier-btn" data-theme="{e(t)}" data-t>Les articles →</button>' if n else "")
+        bouton_faits = (f'<button class="dos-faits" data-fiche="fiche-{i}" data-t>📄 Les faits</button>' if fs else "")
+        cartes_dossiers.append(f'''<article class="dos"><h3 data-t>{e(nom_dossier(t))}</h3><p class="dos-chiffres">{chiffres}</p>
+  <p class="dos-resume"{"" if fs else " data-t"}>{e(resume)}</p><div class="dos-actions">{bouton_faits}{bouton_articles}</div></article>''')
         if fs:
             fiches_par_theme[t] = f"fiche-{i}"
-            fenetres.append(f'''<dialog class="fiche" id="fiche-{i}"><div class="fiche-tete"><h2>{e(nom_dossier(t))}</h2><button class="fermer" aria-label="Fermer">✕</button></div>
-  <div class="fiche-corps"><p class="fiche-intro">Ce qui est <b>établi</b> (documents officiels, faits reconnus) et ce qui reste <b>débattu</b>, avec les sources pour vérifier soi-même.</p>
+            fenetres.append(f'''<dialog class="fiche" id="fiche-{i}"><div class="fiche-tete"><h2 data-t>{e(nom_dossier(t))}</h2><button class="fermer" aria-label="Fermer" data-ta>✕</button></div>
+  <div class="fiche-corps"><p class="fiche-intro" data-th>Ce qui est <b>établi</b> (documents officiels, faits reconnus) et ce qui reste <b>débattu</b>, avec les sources pour vérifier soi-même.</p>
   {"".join(fiche(d) for d in fs)}
-  {f'<button class="filtre-theme dossier-btn fiche-articles" data-theme="{e(t)}">Voir les {n} articles du dossier</button>' if n else ""}</div></dialog>''')
+  {f'<button class="filtre-theme dossier-btn fiche-articles" data-theme="{e(t)}" data-t="Voir les {{n}} articles du dossier" data-n="{n}">Voir les {n} articles du dossier</button>' if n else ""}</div></dialog>''')
     bloc_dossiers = "".join(cartes_dossiers)
     nb_langue = {}
     for a in articles:
@@ -1089,10 +1115,10 @@ def generer_page(articles, etat_sources):
     NOMS_LONGS = {"fr": "Français", "en": "English", "nl": "Nederlands", "es": "Español", "it": "Italiano"}
     options_langues = "".join(f'<option value="{l}">{NOMS_LONGS.get(l, nom)}</option>'
                               for l, nom in NOMS_LANGUE.items() if l in langues_presentes)
-    options_regions = "".join(f'<option value="{e(r)}">{e(r)}</option>' for r in REGIONS)
+    options_regions = "".join(f'<option value="{e(r)}" data-t>{e(r)}</option>' for r in REGIONS)
     # un onglet sans aucun article (ex. Humour avant la première publication) reste caché
     rubriques_pleines = {RUBRIQUE_DU_THEME.get(a["theme"]) for a in articles}
-    onglets = "".join(f'<button class="onglet" data-rubrique="{e(r)}">{e(r)}</button>'
+    onglets = "".join(f'<button class="onglet" data-rubrique="{e(r)}" data-t>{e(r)}</button>'
                       for r in RUBRIQUES if r in rubriques_pleines)
     # sous-chapitres : seuls ceux de l'onglet choisi sont visibles (et seulement s'ils ont des articles)
     nb_sujet = {}
@@ -1100,8 +1126,8 @@ def generer_page(articles, etat_sources):
         for s in a.get("sujets", []):
             nb_sujet[s] = nb_sujet.get(s, 0) + 1
     sous_chapitres = "".join(
-        f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="" hidden>Tout</button>'
-        + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden>{e(s)}</button>'
+        f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="" hidden data-t>Tout</button>'
+        + "".join(f'<button class="sujet" data-rubrique="{e(r)}" data-sujet="{e(s)}" hidden data-t>{e(s)}</button>'
                   for s in d["sujets"] if nb_sujet.get(s))
         for r, d in RUBRIQUES.items() if d["sujets"])
     # « Nous soutenir » (soutien.json) : visible seulement quand un lien de don ou un IBAN est rempli
@@ -1112,14 +1138,14 @@ def generer_page(articles, etat_sources):
     liens_soutien = [l for l in soutien.get("liens", []) if (l.get("url") or "").startswith("http")]
     iban = (soutien.get("iban") or "").strip()
     avec_soutien = bool(liens_soutien or iban)
-    virement = (f'''<div class="virement"><h3>Par virement bancaire</h3>
-  <p>Bénéficiaire : <b>{e(soutien.get("titulaire", ""))}</b><br>IBAN : <b id="iban">{e(iban)}</b> <button class="copier-iban" type="button">Copier</button>
-  <br>Communication : <i>{e(soutien.get("communication", ""))}</i></p></div>''' if iban else "")
-    fenetre_soutien = (f'''<dialog class="fiche" id="dlg-soutien"><div class="fiche-tete"><h2>♥ Soutenir La Centrale</h2><button class="fermer" aria-label="Fermer">✕</button></div>
-  <div class="fiche-corps"><p class="soutien-texte">{e(soutien.get("texte", ""))}</p>
-  {f'<div class="philosophie"><h3>Notre principe : rétribuer l’information indépendante</h3><p>{e(soutien["philosophie"])}</p></div>' if soutien.get("philosophie") else ""}
-  <div class="soutien-liens">{"".join(f'<a class="btn-soutien" href="{e(l["url"])}" target="_blank" rel="noopener">♥ {e(l.get("nom") or "Faire un don")}</a>' for l in liens_soutien)}</div>
-  {virement}<p class="soutien-merci">Merci ! Chaque soutien, même petit, aide à garder La Centrale libre et sans publicité.</p></div></dialog>'''
+    virement = (f'''<div class="virement"><h3 data-t>Par virement bancaire</h3>
+  <p><span data-t>Bénéficiaire</span> : <b>{e(soutien.get("titulaire", ""))}</b><br>IBAN : <b id="iban">{e(iban)}</b> <button class="copier-iban" type="button" data-t>Copier</button>
+  <br><span data-t>Communication</span> : <i>{e(soutien.get("communication", ""))}</i></p></div>''' if iban else "")
+    fenetre_soutien = (f'''<dialog class="fiche" id="dlg-soutien"><div class="fiche-tete"><h2 data-t>♥ Soutenir La Centrale</h2><button class="fermer" aria-label="Fermer" data-ta>✕</button></div>
+  <div class="fiche-corps"><p class="soutien-texte" data-t>{e(soutien.get("texte", ""))}</p>
+  {f'<div class="philosophie"><h3 data-t>Notre principe : rétribuer l’information indépendante</h3><p data-t>{e(soutien["philosophie"])}</p></div>' if soutien.get("philosophie") else ""}
+  <div class="soutien-liens">{"".join(f'<a class="btn-soutien" href="{e(l["url"])}" target="_blank" rel="noopener">♥ <span{"" if l.get("nom") else " data-t"}>{e(l.get("nom") or "Faire un don")}</span></a>' for l in liens_soutien)}</div>
+  {virement}<p class="soutien-merci" data-t>Merci ! Chaque soutien, même petit, aide à garder La Centrale libre et sans publicité.</p></div></dialog>'''
                        if avec_soutien else "")
     # compteur de visiteurs anonyme (GoatCounter : ni cookie, ni adresse IP conservée), réglé dans site.json
     try:
@@ -1127,6 +1153,12 @@ def generer_page(articles, etat_sources):
     except (FileNotFoundError, json.JSONDecodeError):
         reglages_site = {}
     gc = re.sub(r"[^a-z0-9-]", "", (reglages_site.get("goatcounter") or "").lower())
+    # dictionnaire des traductions (+ textes de soutien.json traduits dans ce même fichier)
+    extra = {}
+    for cle in ("texte", "philosophie"):
+        if soutien.get(cle):
+            extra[soutien[cle]] = {l: v.get(cle, "") for l, v in (soutien.get("traductions") or {}).items()}
+    i18n_tete = I18N_TETE.replace("__TR__", json.dumps(dictionnaire(extra), ensure_ascii=False))
     script_compteur = (f'<script data-goatcounter="https://{gc}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>'
                        if gc else "")
     # « Mes fils » : ce qu'on peut choisir (seulement ce qui a des articles en ce moment)
@@ -1143,6 +1175,7 @@ def generer_page(articles, etat_sources):
 
     return f'''<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+{i18n_tete}
 <title>La Centrale</title>
 <style>
 :root{{--fond:#f6f3ee;--carte:#fff;--texte:#1d1b18;--doux:#6b645a;--ligne:#e2dcd2;--accent:#b3261e;--accent-doux:#f6dcd9;--nuit:#16150f;color-scheme:light}}
@@ -1404,26 +1437,29 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
 @media (max-width:1499px){{#fond .fg,#fond .fd{{display:none}}}}
 @media (prefers-color-scheme:dark){{#fond .fg,#fond .fd{{opacity:.32}}#fond::before{{opacity:.05}}}}
 .credits{{display:block;margin-top:6px;font-size:11px;opacity:.8}}
+.ligne-texte{{color:var(--doux);font-size:14px}}.ligne-texte b{{color:var(--texte)}}
+.choix-ui{{font:600 12px system-ui,sans-serif;color:#ece7dd;background:#211f19;border:1px solid #555;border-radius:20px;padding:4px 8px;cursor:pointer}}
 .visites{{display:inline-block;margin-left:8px;opacity:.9}}
 </style>{script_compteur}</head><body><div id="fond" aria-hidden="true"><div class="fg"></div><div class="fd"></div></div>
-<header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
-<p class="maj"><span class="compteur">{recents} nouvelles publications en 24 h</span> Mis à jour le {date_affichee(maintenant)}<span class="visites" id="visites" hidden></span></p></div></header>
-<div class="bandeau"><span class="direct">EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
-<nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="">À la une</button>{onglets}
-  <button class="onglet" id="ouvrir-dossiers"{" hidden" if not ordre else ""}>📂 Dossiers</button>
-  {'<button class="onglet onglet-soutien ouvrir-soutien">♥ Nous soutenir</button>' if avec_soutien else ""}</div>
-  <div class="choix"><select id="choix-region" aria-label="Région"><option value="">🌍 Toutes les régions</option>{options_regions}</select>
-  <select id="choix-langue" aria-label="Langue"><option value="">🗣 Toutes les langues</option>{options_langues}</select></div></nav>
+<header><h1><a href="index.html" id="accueil" title="Retour à l'accueil">La <span>Centrale</span></a></h1><div class="sous"><p data-t>Pour une démocratie participative · toutes les sources au même endroit · sans étiquette</p>
+<p class="maj"><span class="compteur">{recents} <span data-t>nouvelles publications en 24 h</span></span> <span data-t>Mis à jour le</span> <span id="maj-date" data-ts="{int(maintenant.timestamp())}">{date_affichee(maintenant)}</span><span class="visites" id="visites" hidden></span></p></div>
+  <select id="choix-ui" class="choix-ui" aria-label="Langue du site" data-ta>{"".join(f'<option value="{c}">{c.upper()} · {n}</option>' for c, n in LANGUES_UI.items())}</select></header>
+<div class="bandeau"><span class="direct" data-t>EN DIRECT</span><div class="defile"><div class="piste">{bandeau}{bandeau}</div></div></div>
+<nav class="onglets"><div class="regions"><button class="onglet actif" data-rubrique="" data-t>À la une</button>{onglets}
+  <button class="onglet" id="ouvrir-dossiers"{" hidden" if not ordre else ""} data-t>📂 Dossiers</button>
+  {'<button class="onglet onglet-soutien ouvrir-soutien" data-t>♥ Nous soutenir</button>' if avec_soutien else ""}</div>
+  <div class="choix"><select id="choix-region" aria-label="Région"><option value="" data-t>🌍 Toutes les régions</option>{options_regions}</select>
+  <select id="choix-langue" aria-label="Langue"><option value="" data-t>🗣 Toutes les langues</option>{options_langues}</select></div></nav>
 <div class="barre">
-  <form class="recherche" id="form-recherche" role="search"><input id="recherche" type="search" enterkeyhint="search" placeholder="Rechercher un mot, un sujet…"><button type="submit" aria-label="Rechercher">🔍</button></form>
+  <form class="recherche" id="form-recherche" role="search"><input id="recherche" type="search" enterkeyhint="search" placeholder="Rechercher un mot, un sujet…" data-tp><button type="submit" aria-label="Rechercher" data-ta>🔍</button></form>
   <span class="barre-fils" id="barre-fils"></span>
   {sous_chapitres}
-  <button id="ma-selection">★ Ma sélection</button>
-  <button id="ouvrir-reglages" title="Réglages Telegram / Instagram">⚙ Réglages</button>
+  <button id="ma-selection" data-t>★ Ma sélection</button>
+  <button id="ouvrir-reglages" title="Réglages Telegram / Instagram" data-tt data-t>⚙ Réglages</button>
 </div>
-<div class="titre-une" id="titre-une" hidden><h2 id="titre-une-txt"></h2><p id="titre-une-nb"></p><button id="titre-une-faits" hidden>📄 Les faits et les sources</button>
-  <span class="fil-actions" id="fil-actions" hidden><button id="fil-garder">＋ Garder ce fil</button><button id="fil-partager">🔗 Partager</button><button id="fil-modifier">✎ Modifier</button><button id="fil-quitter">✕ Tout voir</button></span></div>
-<dialog class="fiche" id="dlg-fils"><div class="fiche-tete"><h2>✦ Mes fils</h2><button class="fermer" aria-label="Fermer">✕</button></div><div class="fiche-corps" id="fils-corps"></div></dialog>
+<div class="titre-une" id="titre-une" hidden><h2 id="titre-une-txt"></h2><p id="titre-une-nb"></p><button id="titre-une-faits" hidden data-t>📄 Les faits et les sources</button>
+  <span class="fil-actions" id="fil-actions" hidden><button id="fil-garder" data-t>＋ Garder ce fil</button><button id="fil-partager" data-t>🔗 Partager</button><button id="fil-modifier" data-t>✎ Modifier</button><button id="fil-quitter" data-t>✕ Tout voir</button></span></div>
+<dialog class="fiche" id="dlg-fils"><div class="fiche-tete"><h2 data-t>✦ Mes fils</h2><button class="fermer" aria-label="Fermer" data-ta>✕</button></div><div class="fiche-corps" id="fils-corps"></div></dialog>
 <section class="haut" id="bloc-une">
   <div class="carrousel" id="carrousel">
     {"".join(diapo(a, i) for i, a in enumerate(diapos))}
@@ -1432,24 +1468,24 @@ footer{{text-align:center;color:var(--doux);font-size:12px;padding:30px 20px}}
     <div class="progression"></div>
   </div>
   <div class="mosaique" id="bloc-mosaique"><div class="grille">{"".join(tuile(a) for a in mosaique)}</div></div>
-  <div class="minute"><h2>Dernière minute</h2><ul>{derniere_minute}</ul></div>
+  <div class="minute"><h2 data-t>Dernière minute</h2><ul>{derniere_minute}</ul></div>
 </section>
-<section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><div class="tete"><h2>Nos publications</h2><button class="rail-btn" data-sens="-1" aria-label="Publications précédentes">‹</button><button class="rail-btn" data-sens="1" aria-label="Publications suivantes">›</button></div>
+<section class="nos-pub" id="bloc-nos-pub"{"" if nos_publications else " hidden"}><div class="tete"><h2 data-t>Nos publications</h2><button class="rail-btn" data-sens="-1" aria-label="Publications précédentes">‹</button><button class="rail-btn" data-sens="1" aria-label="Publications suivantes">›</button></div>
   <div class="rail" id="rail-pub">{"".join(carte_pub(a) for a in nos_publications)}</div></section>
-<section class="dossiers" id="bloc-dossiers"{" hidden" if not ordre else ""}><h2>Nos dossiers</h2><p class="chapeau">Les sujets suivis de près : les articles parus, et pour certains une fiche qui sépare ce qui est établi de ce qui reste débattu, sources à l'appui.</p><div class="grille-dossiers">{bloc_dossiers}</div></section>
+<section class="dossiers" id="bloc-dossiers"{" hidden" if not ordre else ""}><h2 data-t>Nos dossiers</h2><p class="chapeau" data-t>Les sujets suivis de près : les articles parus, et pour certains une fiche qui sépare ce qui est établi de ce qui reste débattu, sources à l'appui.</p><div class="grille-dossiers">{bloc_dossiers}</div></section>
 {"".join(fenetres)}{fenetre_soutien}
 <main>
-  <section><h2 id="titre-fil">Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
-  <p class="vide" id="vide" hidden>Aucun article ne correspond.</p><button class="plus" id="plus" hidden>Voir plus</button></section>
+  <section><h2 id="titre-fil" data-t>Toutes les publications</h2><div class="fil" id="fil">{"".join(fil)}</div>
+  <p class="vide" id="vide" hidden data-t>Aucun article ne correspond.</p><button class="plus" id="plus" hidden>Voir plus</button></section>
   <aside>
-    {'<div class="bloc bloc-soutien"><h2>Nous soutenir</h2><p>La Centrale est indépendante, sans publicité ni subvention. Si ce travail de partage vous est utile, vous pouvez le soutenir.</p><button class="ouvrir-soutien">♥ Soutenir La Centrale</button></div>' if avec_soutien else ""}
-    <div class="bloc"><h2>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
-    <div class="bloc"><h2>Notre ligne</h2><p style="margin:0 0 10px;color:var(--doux);font-size:14px"><b style="color:var(--texte)">La démocratie participative.</b> Les citoyens n'ont pas besoin d'étiquettes ni d'intermédiaires pour penser : ils ont besoin d'accès aux faits, aux documents et à tous les points de vue, pour décider eux-mêmes.</p>
-    <p style="margin:0;color:var(--doux);font-size:14px">Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ✦ Mes fils : composez votre propre une, avec seulement les sujets qui vous intéressent. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
+    {'<div class="bloc bloc-soutien"><h2 data-t>Nous soutenir</h2><p data-t>La Centrale est indépendante, sans publicité ni subvention. Si ce travail de partage vous est utile, vous pouvez le soutenir.</p><button class="ouvrir-soutien" data-t>♥ Soutenir La Centrale</button></div>' if avec_soutien else ""}
+    <div class="bloc"><h2 data-t>Les sources</h2><ul class="sources">{liste_sources}</ul></div>
+    <div class="bloc"><h2 data-t>Notre ligne</h2><p class="ligne-texte" style="margin:0 0 10px" data-th><b>La démocratie participative.</b> Les citoyens n'ont pas besoin d'étiquettes ni d'intermédiaires pour penser : ils ont besoin d'accès aux faits, aux documents et à tous les points de vue, pour décider eux-mêmes.</p>
+    <p class="ligne-texte" style="margin:0" data-t>Chaque titre renvoie vers l'article d'origine. Lisez, comparez, remontez aux documents : à vous de juger. ✦ Mes fils : composez votre propre une, avec seulement les sujets qui vous intéressent. ☆ garde un article dans votre sélection, ✈ le publie sur Telegram, ▣ crée un visuel Instagram.</p></div>
   </aside>
 </main>
 <button id="remonter" hidden aria-label="Remonter en haut">↑</button>
-<footer>La Centrale · {len(articles)} articles de {sum(1 for _, _, err in etat_sources if not err)} sources<span class="credits">{e(credits_fonds())}</span>{'<span class="credits">Mesure d’audience anonyme (<a href="https://www.goatcounter.com" target="_blank" rel="noopener" style="color:inherit">GoatCounter</a>, logiciel libre) : aucun cookie, aucune adresse IP conservée, aucune donnée personnelle.</span>' if gc else ""}</footer>
+<footer>La Centrale · {len(articles)} <span data-t>articles de</span> {sum(1 for _, _, err in etat_sources if not err)} <span data-t>sources</span><span class="credits">{e(credits_fonds())}</span>{'<span class="credits"><span data-t>Mesure d’audience anonyme</span> (<a href="https://www.goatcounter.com" target="_blank" rel="noopener" style="color:inherit">GoatCounter</a>, <span data-t>logiciel libre</span>) : <span data-t>aucun cookie, aucune adresse IP conservée, aucune donnée personnelle.</span></span>' if gc else ""}</footer>
 <script>
 /* images de fond : deux images tirées au hasard dans la liste de la rubrique */
 const FONDS={fonds_js},POS_FONDS={json.dumps(POSITIONS_FONDS)};
@@ -1461,6 +1497,20 @@ function majFond(r){{
   s.setProperty('--pos-g',(f.pos&&f.pos[0])||POS_FONDS[g]||'center');s.setProperty('--pos-d',(f.pos&&f.pos[1])||POS_FONDS[d]||'center');
 }}
 majFond('');
+/* langue de l'interface : textes traduits, choix de la langue, dates à la façon du pays */
+traduirePage();document.addEventListener('DOMContentLoaded',traduirePage);
+{{const s=document.getElementById('choix-ui');s.value=UI;s.onchange=()=>{{try{{localStorage.setItem('centrale-ui',s.value)}}catch(e){{}}location.reload()}}}}
+if(UI!=='fr'){{
+  const d=document.getElementById('maj-date');
+  d.textContent=new Intl.DateTimeFormat(UI,{{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}}).format(new Date(d.dataset.ts*1000));
+  const iso=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+  const auj=iso(new Date()),hier=iso(new Date(Date.now()-864e5));
+  document.querySelectorAll('.jour[data-jour]').forEach(j=>{{const v=j.dataset.jour;if(!v)return;
+    if(v>=auj){{j.textContent=t("Aujourd'hui");return}}if(v===hier){{j.textContent=t('Hier');return}}
+    const x=new Intl.DateTimeFormat(UI,{{weekday:'long',day:'numeric',month:'long'}}).format(new Date(v+'T12:00:00'));
+    j.textContent=x.charAt(0).toUpperCase()+x.slice(1)}});
+}}
+const nomDossier=x=>{{x=x.replace(/^Dossier /,'');return x.charAt(0).toUpperCase()+x.slice(1)}};
 const cartes=[...document.querySelectorAll('#fil .carte')];
 const jours=[...document.querySelectorAll('#fil .jour')];
 const etoiles=document.querySelectorAll('.etoile');
@@ -1478,6 +1528,8 @@ function majEtoiles(){{etoiles.forEach(b=>{{const on=favoris.has(b.closest('.car
 /* heures relatives (« il y a 2 h »), recalculées chaque minute */
 function relatif(ts){{
   if(!+ts)return'';const s=Date.now()/1000-ts;
+  if(UI!=='fr'){{if(s<60)return t("à l'instant");const f=new Intl.RelativeTimeFormat(UI,{{numeric:'auto',style:'short'}});
+    return s<3600?f.format(-Math.floor(s/60),'minute'):s<86400?f.format(-Math.floor(s/3600),'hour'):f.format(-Math.floor(s/86400),'day')}}
   if(s<60)return"à l'instant";if(s<3600)return'il y a '+Math.floor(s/60)+' min';
   if(s<86400)return'il y a '+Math.floor(s/3600)+' h';const j=Math.floor(s/86400);return j===1?'hier':'il y a '+j+' j';
 }}
@@ -1523,7 +1575,7 @@ const UNE0={{d:diapos.map(x=>x.outerHTML).join(''),p:boitePoints.innerHTML,g:gri
 let cleUne='';
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}})[c]);
 function champs(c){{const im=c.querySelector('.lien img');return{{lien:esc(c.querySelector('a.lien').getAttribute('href')),img:im?esc(im.getAttribute('src')):'',
-  src:esc(c.dataset.source),theme:esc(c.dataset.theme),ts:c.dataset.ts,lg:c.dataset.langue,t:esc(c.querySelector('h3').textContent),r:esc(c.querySelector('.corps p').textContent),
+  src:esc(c.dataset.source),theme:esc(t(c.dataset.theme)),ts:c.dataset.ts,lg:c.dataset.langue,t:esc(c.querySelector('h3').textContent),r:esc(c.querySelector('.corps p').textContent),
   ent:c.classList.contains('entiere')?' entiere':''}}}}
 const CACHER="this.style.visibility='hidden'";
 const htmlDiapo=(f,i)=>`<a class="diapo${{i?'':' active'}}${{f.ent}}" data-langue="${{f.lg}}" href="${{f.lien}}" target="_blank" rel="noopener"><img src="${{f.img}}" alt="" referrerpolicy="no-referrer" onerror="${{CACHER}}">
@@ -1557,7 +1609,7 @@ function filtrer(plus){{
     if(ok){{n++;trouves.push(c)}}c.hidden=!ok||n>limite;
   }});
   const bPlus=document.getElementById('plus');bPlus.hidden=n<=limite;
-  bPlus.textContent=`Voir plus d'articles (${{n-limite}} restants)`;
+  bPlus.textContent=t("Voir plus d'articles ({{n}} restants)",{{n:n-limite}});
   document.querySelectorAll('.sujet').forEach(b=>{{b.hidden=b.dataset.rubrique!==rubrique;b.classList.toggle('actif',!b.hidden&&b.dataset.sujet===sujet)}});
   jours.forEach(j=>{{let el=j.nextElementSibling,vu=false;
     while(el&&!el.classList.contains('jour')){{if(!el.hidden){{vu=true;break}}el=el.nextElementSibling}}j.hidden=!vu}});
@@ -1566,7 +1618,7 @@ function filtrer(plus){{
   document.querySelectorAll('.sources li').forEach(li=>li.hidden=(!!theme&&li.dataset.theme!==theme)||(!!rubrique&&!sujet&&li.dataset.rubrique!==rubrique));
   {{const ul=document.querySelector('.sources');ul.closest('.bloc').hidden=![...ul.children].some(li=>!li.hidden)}} /* pas de cadre « Les sources » vide (ex. Humour) */
   const filtre=!!(region||theme||source||selection||q||rubrique||fil);
-  const titre=[fil&&(fil.e+' '+fil.n),rubrique,sujet,region,selection?'Ma sélection':source||(theme&&theme.replace(/^Dossier /,'Dossier : '))].filter(Boolean).join(' · ');
+  const titre=[fil&&(fil.e+' '+fil.n),t(rubrique),t(sujet),t(region),selection?t('Ma sélection'):source||(theme&&(theme.startsWith('Dossier ')?t('Dossier : ')+t(nomDossier(theme)):t(theme)))].filter(Boolean).join(' · ');
   // pays, onglet, sous-chapitre ou dossier : une « une » propre, comme l'accueil
   const vueUne=!!(region||rubrique||theme||fil)&&!source&&!selection&&!q&&n>0;
   const cle=vueUne?[region,rubrique,sujet,theme,langue,fil?JSON.stringify(fil):''].join('|'):'';
@@ -1574,14 +1626,14 @@ function filtrer(plus){{
   const avecTitre=vueUne||(!!fil&&!source&&!selection&&!q); /* un fil vide garde son titre et ses boutons */
   document.getElementById('titre-une').hidden=!avecTitre;
   if(avecTitre){{document.getElementById('titre-une-txt').textContent=titre;
-    document.getElementById('titre-une-nb').textContent=`${{n}} article${{n>1?'s':''}} · les plus récents d'abord`}}
+    document.getElementById('titre-une-nb').textContent=t(n>1?"{{n}} articles · les plus récents d'abord":"{{n}} article · les plus récents d'abord",{{n}})}}
   document.getElementById('titre-une-faits').hidden=!(vueUne&&FICHES[theme]);
   document.getElementById('fil-actions').hidden=!(avecTitre&&fil);
   if(fil)document.getElementById('fil-garder').hidden=filGarde(fil);
   document.getElementById('bloc-une').hidden=filtre&&!vueUne;
   if(document.querySelector('#bloc-nos-pub .carte'))document.getElementById('bloc-nos-pub').hidden=filtre;
   if(document.getElementById('bloc-dossiers').children.length>1)document.getElementById('bloc-dossiers').hidden=filtre;(filtre&&!vueUne)?pause():lancer();
-  document.getElementById('titre-fil').textContent=q?`${{n}} résultat${{n>1?'s':''}} pour « ${{q}} »`+(titre?' · '+titre:''):titre||'Toutes les publications';
+  document.getElementById('titre-fil').textContent=q?t(n>1?'{{n}} résultats pour « {{q}} »':'{{n}} résultat pour « {{q}} »',{{n,q}})+(titre?' · '+titre:''):titre||t('Toutes les publications');
 }}
 /* onglets principaux : un seul actif à la fois */
 function activerOnglet(r){{if(fil){{quitterFil();majFond(r)}}else if(r!==rubrique)majFond(r);rubrique=r;sujet='';
@@ -1632,11 +1684,11 @@ document.querySelectorAll('dialog.fiche').forEach(d=>{{d.querySelector('.fermer'
 const GC={json.dumps(gc)};
 if(GC)fetch('https://'+GC+'.goatcounter.com/counter/TOTAL.json').then(r=>r.ok?r.json():null).then(d=>{{
   if(!d||!d.count)return;const v=document.getElementById('visites');
-  v.textContent='· 👁 '+String(d.count).replace(/[,.\\s]/g,' ')+' visiteurs';v.title='Nombre total de visiteurs, compté de façon anonyme';v.hidden=false}}).catch(()=>{{}});
+  v.textContent=t('· 👁 {{n}} visiteurs',{{n:String(d.count).replace(/[,.\\s]/g,' ')}});v.title=t('Nombre total de visiteurs, compté de façon anonyme');v.hidden=false}}).catch(()=>{{}});
 /* Nous soutenir */
 document.querySelectorAll('.ouvrir-soutien').forEach(b=>b.onclick=()=>document.getElementById('dlg-soutien').showModal());
 document.querySelectorAll('.copier-iban').forEach(b=>b.onclick=async()=>{{
-  try{{await navigator.clipboard.writeText(document.getElementById('iban').textContent.replace(/\\s/g,''));b.textContent='Copié ✓'}}catch(e){{b.textContent='Sélectionnez-le'}}}});
+  try{{await navigator.clipboard.writeText(document.getElementById('iban').textContent.replace(/\\s/g,''));b.textContent=t('Copié ✓')}}catch(e){{b.textContent='Sélectionnez-le'}}}});
 /* rail « Nos publications » : flèches, cachées s'il n'y a rien à faire défiler */
 const rail=document.getElementById('rail-pub');
 document.querySelectorAll('.rail-btn').forEach(b=>b.onclick=()=>rail.scrollBy({{left:b.dataset.sens*rail.clientWidth*.9,behavior:'smooth'}}));
